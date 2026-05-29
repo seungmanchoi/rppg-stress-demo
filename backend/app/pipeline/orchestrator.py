@@ -132,13 +132,13 @@ async def run_pipeline(
             continue
         ibi = bvp_to_ibi(bvp, fs)
         # IBI 추출 실패 — 측정 자체가 실패한 케이스로 표시 (stress=0이 카드에 노출되는 것 방지)
-        if len(ibi) < 8:
+        if len(ibi) < 16:
             per_algo.append(
                 {
                     "id": aid,
                     "meta": meta.to_dict(),
                     "available": False,
-                    "error": f"맥파에서 박동을 충분히 검출하지 못함 (IBI {len(ibi)}개)",
+                    "error": f"맥파에서 박동을 충분히 검출하지 못함 (IBI {len(ibi)}개, 16개 필요)",
                     "compute_ms": compute_ms,
                 }
             )
@@ -147,6 +147,18 @@ async def run_pipeline(
         fd = freq_domain_hrv(ibi)
         pc = poincare(ibi)
         bv = baevsky_si(ibi)
+        # 주파수 분석이 실패한 (LF/HF=0) 케이스도 측정 부정확으로 강등
+        if fd.lf_hf_ratio == 0 and bv.si == 0:
+            per_algo.append(
+                {
+                    "id": aid,
+                    "meta": meta.to_dict(),
+                    "available": False,
+                    "error": "심박 간격의 주파수 분석 실패 — 신호가 부족합니다",
+                    "compute_ms": compute_ms,
+                }
+            )
+            continue
         comp = composite_stress(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
         snr = bvp_snr_db(bvp, fs)
         if td.hr_bpm > 0:

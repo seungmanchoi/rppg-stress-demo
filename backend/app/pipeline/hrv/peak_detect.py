@@ -47,6 +47,18 @@ def bvp_to_ibi(bvp: np.ndarray, fs: float) -> np.ndarray:
         filtered = savgol_filter(filtered, window_length=win, polyorder=2)
 
     hr_hz = estimate_hr_hz(filtered, fs)
+    # Detect 2nd-harmonic mis-locking: if dominant freq > 2.4 Hz (≈ 144 BPM)
+    # but half-frequency band has non-trivial power, halve it.
+    if hr_hz > 2.4:
+        half_hz = hr_hz / 2
+        n = len(filtered)
+        spec = np.abs(np.fft.rfft(filtered - filtered.mean()))
+        freqs = np.fft.rfftfreq(n, 1 / fs)
+        peak_pow = float(spec[(freqs >= hr_hz - 0.05) & (freqs <= hr_hz + 0.05)].sum())
+        half_pow = float(spec[(freqs >= half_hz - 0.05) & (freqs <= half_hz + 0.05)].sum())
+        if half_hz >= 0.7 and half_pow > peak_pow * 0.4:
+            hr_hz = half_hz
+
     if hr_hz <= 0:
         peaks, _ = find_peaks(filtered, distance=int(0.4 * fs))
     else:
@@ -60,10 +72,10 @@ def bvp_to_ibi(bvp: np.ndarray, fs: float) -> np.ndarray:
 
     ibi_ms = np.diff(peaks) / fs * 1000.0
 
-    # Strict window: drop intervals that deviate more than 25% from expected.
+    # Looser window: drop intervals that deviate >30% from expected.
     if hr_hz > 0:
         expected_ms = 1000.0 / hr_hz
-        keep = (ibi_ms >= expected_ms * 0.75) & (ibi_ms <= expected_ms * 1.25)
+        keep = (ibi_ms >= expected_ms * 0.7) & (ibi_ms <= expected_ms * 1.3)
         ibi_ms = ibi_ms[keep]
 
     # 2·MAD cleanup (tighter than typical 3·MAD).
