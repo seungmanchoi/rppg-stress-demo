@@ -1,21 +1,33 @@
+"""Face ROI extraction using OpenCV Haar cascade.
+
+Returns mean RGB signal averaged over forehead + cheek strips.
+For supervised models we also return 72x72 face crops aligned per frame.
+"""
+from __future__ import annotations
+
+import cv2
 import numpy as np
 
-FOREHEAD = [10, 67, 297, 332, 338]
-LEFT_CHEEK = [50, 101, 118, 117, 123]
-RIGHT_CHEEK = [280, 330, 347, 346, 352]
-LANDMARKS = FOREHEAD + LEFT_CHEEK + RIGHT_CHEEK
+_CASCADE: cv2.CascadeClassifier | None = None
 
 
-def _get_face_mesh():
-    """Lazy-init MediaPipe FaceMesh (avoids global state at import time)."""
-    import mediapipe as mp
+def _cascade() -> cv2.CascadeClassifier:
+    global _CASCADE
+    if _CASCADE is None:
+        path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        _CASCADE = cv2.CascadeClassifier(path)
+    return _CASCADE
 
-    return mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=False,
-        refine_landmarks=False,
-        max_num_faces=1,
-        min_detection_confidence=0.5,
-    )
+
+def _strip_mean(frame: np.ndarray, x: int, y: int, w: int, h: int) -> np.ndarray:
+    """Return mean RGB over forehead band + two cheek bands inside face box."""
+    forehead = frame[y : y + h // 3, x + w // 4 : x + 3 * w // 4]
+    left_cheek = frame[y + h // 3 : y + 2 * h // 3, x : x + w // 3]
+    right_cheek = frame[y + h // 3 : y + 2 * h // 3, x + 2 * w // 3 : x + w]
+    pieces = [p.reshape(-1, 3) for p in (forehead, left_cheek, right_cheek) if p.size]
+    if not pieces:
+        return np.zeros(3)
+    return np.concatenate(pieces, axis=0).mean(axis=0)
 
 
 def extract_roi_signal(
@@ -24,47 +36,38 @@ def extract_roi_signal(
 ) -> tuple[np.ndarray, int, np.ndarray | None]:
     """
     frames: (T, H, W, 3) uint8 RGB
-    returns: (mean RGB signal (T, 3), detected_count, optional aligned face crops (T, 72, 72, 3))
+    returns: (signal (T, 3), detected_count, optional (T, 72, 72, 3) face crops)
     """
-    import cv2
-
-    mesh = _get_face_mesh()
-    T, H, W, _ = frames.shape
-    signal = np.zeros((T, 3))
+    T = len(frames)
+    signal = np.zeros((T, 3), dtype=np.float64)
     crops = np.zeros((T, 72, 72, 3), dtype=np.uint8) if roi_crops else None
+    cascade = _cascade()
     detected = 0
     last_box: tuple[int, int, int, int] | None = None
-    try:
-        for i in range(T):
-            res = mesh.process(frames[i])
-            if not res.multi_face_landmarks:
-                if i > 0:
-                    signal[i] = signal[i - 1]
-                if crops is not None and last_box:
-                    x0, y0, x1, y1 = last_box
-                    crops[i] = cv2.resize(frames[i, y0:y1, x0:x1], (72, 72))
-                continue
-            lms = res.multi_face_landmarks[0].landmark
-            pts = np.array(
-                [(int(lms[j].x * W), int(lms[j].y * H)) for j in LANDMARKS]
-            )
-            x0 = max(0, int(pts[:, 0].min()))
-            y0 = max(0, int(pts[:, 1].min()))
-            x1 = min(W, int(pts[:, 0].max()))
-            y1 = min(H, int(pts[:, 1].max()))
-            roi = frames[i, y0:y1, x0:x1]
-            if roi.size:
-                signal[i] = roi.reshape(-1, 3).mean(0)
-                detected += 1
-                last_box = (x0, y0, x1, y1)
+
+    for i in range(T):
+        gray = cv2.cvtColor(frames[i], cv2.COLOR_RGB2GRAY)
+        faces = cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=4, minSize=(40, 40))
+        if len(faces) > 0:
+            # pick largest face
+            x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
+            signal[i] = _strip_mean(frames[i], x, y, w, h)
+            detected += 1
+            last_box = (x, y, w, h)
+            if crops is not None:
+                face = frames[i, y : y + h, x : x + w]
+                if face.size:
+                    crops[i] = cv2.resize(face, (72, 72))
+        else:
+            if last_box and i > 0:
+                signal[i] = signal[i - 1]
                 if crops is not None:
-                    fx0 = max(0, x0 - (x1 - x0) // 2)
-                    fy0 = max(0, y0 - (y1 - y0))
-                    fx1 = min(W, x1 + (x1 - x0) // 2)
-                    fy1 = min(H, y1 + (y1 - y0) // 2)
-                    face_crop = frames[i, fy0:fy1, fx0:fx1]
-                    if face_crop.size:
-                        crops[i] = cv2.resize(face_crop, (72, 72))
-    finally:
-        mesh.close()
+                    x, y, w, h = last_box
+                    H, W = frames.shape[1], frames.shape[2]
+                    yy0, yy1 = max(0, y), min(H, y + h)
+                    xx0, xx1 = max(0, x), min(W, x + w)
+                    face = frames[i, yy0:yy1, xx0:xx1]
+                    if face.size:
+                        crops[i] = cv2.resize(face, (72, 72))
+
     return signal, detected, crops
