@@ -1,0 +1,235 @@
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from sse_starlette.sse import EventSourceResponse
+
+from app.core.config import settings
+from app.core.events import bus
+from app.core.jobs import store
+from app.models.registry import all_ids, get_meta
+from app.pipeline.consensus import build_consensus
+from app.pipeline.orchestrator import run_pipeline
+from app.schemas.measurement import (
+    AlgorithmMetaOut,
+    AlgorithmResult,
+    ConsensusResult,
+    HRVMetrics,
+    MeasurementResponse,
+    Reliability,
+    ReliabilityComponents,
+    StressIndices,
+    VideoMeta,
+)
+
+log = logging.getLogger(__name__)
+router = APIRouter(prefix="/measurements", tags=["measurements"])
+
+
+def _downsample(arr, n: int = 150) -> list[float]:
+    import numpy as np
+
+    if arr is None or len(arr) == 0:
+        return []
+    if len(arr) <= n:
+        return arr.astype(float).tolist()
+    idx = np.linspace(0, len(arr) - 1, n).astype(int)
+    return arr[idx].astype(float).tolist()
+
+
+def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[AlgorithmResult]:
+    out: list[AlgorithmResult] = []
+    for a in per_algo:
+        meta = AlgorithmMetaOut(**a["meta"])
+        if not a["available"]:
+            out.append(
+                AlgorithmResult(
+                    meta=meta,
+                    available=False,
+                    error=a.get("error"),
+                    compute_ms=a.get("compute_ms", 0),
+                )
+            )
+            continue
+        hrv = HRVMetrics(
+            hr_bpm=a["hrv"].hr_bpm,
+            ibi_mean_ms=a["hrv"].ibi_mean_ms,
+            sdnn_ms=a["hrv"].sdnn_ms,
+            rmssd_ms=a["hrv"].rmssd_ms,
+            pnn50_pct=a["hrv"].pnn50_pct,
+            lf_power=a["freq"].lf_power,
+            hf_power=a["freq"].hf_power,
+            lf_hf_ratio=a["freq"].lf_hf_ratio,
+            sd1=a["poincare"].sd1,
+            sd2=a["poincare"].sd2,
+        )
+        stress = StressIndices(
+            baevsky_si=a["baevsky"].si,
+            baevsky_level=a["baevsky"].level,
+            composite_score=a["composite"],
+            composite_level=(
+                "low" if a["composite"] < 30
+                else "mid" if a["composite"] < 60
+                else "high" if a["composite"] < 80
+                else "very_high"
+            ),
+        )
+        rel = Reliability(
+            score=a["reliability"],
+            grade=a["reliability_grade"],
+            components=ReliabilityComponents(
+                snr_db=a["snr_db"],
+                face_tracking_pct=quality.detected_ratio * 100,
+                deviation_from_consensus=(
+                    a["hrv"].hr_bpm - median_hr if median_hr else 0
+                ),
+                motion_penalty=quality.mean_motion_px,
+            ),
+        )
+        out.append(
+            AlgorithmResult(
+                meta=meta,
+                available=True,
+                hrv=hrv,
+                stress=stress,
+                reliability=rel,
+                bvp_sparkline=_downsample(a["bvp"]),
+                compute_ms=a.get("compute_ms", 0),
+            )
+        )
+    return out
+
+
+def _consensus(per_algo: list[dict]) -> ConsensusResult | None:
+    c = build_consensus(per_algo)
+    if not c:
+        return None
+    return ConsensusResult(
+        stress_score=c["stress_score"],
+        stress_level=c["stress_level"],
+        hr_bpm=c["hr_bpm"],
+        rmssd_ms=c["rmssd_ms"],
+        lf_hf_ratio=c["lf_hf_ratio"],
+        baevsky_si=c["baevsky_si"],
+        reliability=Reliability(
+            score=c["reliability"]["score"],
+            grade=c["reliability"]["grade"],
+            components=ReliabilityComponents(
+                snr_db=0, face_tracking_pct=0, deviation_from_consensus=0, motion_penalty=0
+            ),
+        ),
+        contributing_algorithms=c["contributing_algorithms"],
+    )
+
+
+async def _process(job_id: str, path: Path, algorithm_ids: list[str]) -> None:
+    await store.update(job_id, status="processing", progress=0.05, stage="decoding")
+
+    async def progress(p: float, stage: str) -> None:
+        await store.update(job_id, progress=p, stage=stage)
+        await bus.publish(job_id, {"event": "progress", "progress": p, "stage": stage})
+
+    try:
+        out = await run_pipeline(path, algorithm_ids, progress)
+        algo_results = _algorithm_results(out["per_algo"], out["quality"], out["median_hr"])
+        consensus = _consensus(out["per_algo"])
+        await store.update(
+            job_id,
+            status="done",
+            progress=1.0,
+            stage="done",
+            warnings=out["quality"].warnings,
+            result={
+                "video_meta": out["video_meta"],
+                "algorithms": [r.model_dump(by_alias=True) for r in algo_results],
+                "consensus": consensus.model_dump(by_alias=True) if consensus else None,
+            },
+        )
+        await bus.publish(job_id, {"event": "done"})
+    except Exception as e:  # noqa: BLE001
+        log.exception("pipeline failed")
+        await store.update(job_id, status="failed", error=str(e))
+        await bus.publish(job_id, {"event": "failed", "error": str(e)})
+    finally:
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@router.post("", status_code=202)
+async def create_measurement(
+    bg: BackgroundTasks,
+    video: UploadFile = File(...),
+    algorithms: str | None = None,
+) -> dict:
+    if not video.filename:
+        raise HTTPException(400, "video file required")
+    data = await video.read()
+    if len(data) > settings.max_video_mb * 1024 * 1024:
+        raise HTTPException(413, f"video larger than {settings.max_video_mb}MB")
+    job = await store.create()
+    safe_name = video.filename.replace("/", "_")
+    target = settings.tmp_dir / f"{job.id}_{safe_name}"
+    target.write_bytes(data)
+    ids = (
+        [a.strip() for a in algorithms.split(",") if a.strip()]
+        if algorithms
+        else all_ids()
+    )
+    unknown = [a for a in ids if a not in set(all_ids())]
+    if unknown:
+        raise HTTPException(400, f"unknown algorithms: {unknown}")
+    bg.add_task(_process, job.id, target, ids)
+    return {"jobId": job.id, "status": "queued"}
+
+
+@router.get(
+    "/{job_id}",
+    response_model=MeasurementResponse,
+    response_model_by_alias=True,
+)
+async def get_measurement(job_id: str) -> MeasurementResponse:
+    j = store.get(job_id)
+    if not j:
+        raise HTTPException(404, "job not found")
+    payload: dict = {
+        "job_id": j.id,
+        "status": j.status,
+        "progress": j.progress,
+        "stage": j.stage,
+        "warnings": j.warnings,
+        "error": j.error,
+    }
+    if j.result:
+        payload["video_meta"] = j.result["video_meta"]
+        payload["algorithms"] = j.result["algorithms"]
+        payload["consensus"] = j.result["consensus"]
+    return MeasurementResponse.model_validate(payload)
+
+
+@router.get("/{job_id}/stream")
+async def stream_measurement(job_id: str):
+    if not store.get(job_id):
+        raise HTTPException(404)
+    queue = bus.subscribe(job_id)
+
+    async def gen():
+        try:
+            while True:
+                ev = await queue.get()
+                yield {"event": ev.get("event", "message"), "data": json.dumps(ev)}
+                if ev.get("event") in {"done", "failed"}:
+                    break
+        finally:
+            bus.unsubscribe(job_id, queue)
+
+    return EventSourceResponse(gen())
+
+
+@router.delete("/{job_id}", status_code=204)
+async def delete_measurement(job_id: str) -> None:
+    await store.delete(job_id)
