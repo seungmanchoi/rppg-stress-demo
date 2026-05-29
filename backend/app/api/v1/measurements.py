@@ -144,6 +144,7 @@ async def _process(job_id: str, path: Path, algorithm_ids: list[str]) -> None:
             warnings=out["quality"].warnings,
             result={
                 "video_meta": out["video_meta"],
+                "timing": out.get("timing"),
                 "algorithms": [r.model_dump(by_alias=True) for r in algo_results],
                 "consensus": consensus.model_dump(by_alias=True) if consensus else None,
             },
@@ -206,6 +207,7 @@ async def get_measurement(job_id: str) -> MeasurementResponse:
     }
     if j.result:
         payload["video_meta"] = j.result["video_meta"]
+        payload["timing"] = j.result.get("timing")
         payload["algorithms"] = j.result["algorithms"]
         payload["consensus"] = j.result["consensus"]
     return MeasurementResponse.model_validate(payload)

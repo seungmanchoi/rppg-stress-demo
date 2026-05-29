@@ -82,19 +82,28 @@ async def run_pipeline(
     algorithm_ids: list[str],
     progress_cb: ProgressCb | None = None,
 ) -> dict:
+    import time as _time
+    t_start = _time.perf_counter()
+
     async def _emit(p: float, stage: str):
         if progress_cb:
             await progress_cb(p, stage)
 
     await _emit(0.05, "decode")
+    t0 = _time.perf_counter()
     frames, fs, (h, w) = decode_video(video_path, target_fps=30)
+    decode_ms = (_time.perf_counter() - t0) * 1000
     duration_s = float(len(frames) / fs)
 
     await _emit(0.25, "face_roi")
+    t0 = _time.perf_counter()
     rgb_signal, detected, _ = extract_roi_signal(frames, roi_crops=False)
+    face_ms = (_time.perf_counter() - t0) * 1000
 
     await _emit(0.45, "quality")
+    t0 = _time.perf_counter()
     quality = assess(frames, detected)
+    quality_ms = (_time.perf_counter() - t0) * 1000
 
     await _emit(0.55, "algorithms")
     loop = asyncio.get_running_loop()
@@ -174,8 +183,16 @@ async def run_pipeline(
         a["reliability_grade"] = reliability_grade(rel)
 
     await _emit(1.0, "done")
+    total_ms = (_time.perf_counter() - t_start) * 1000
 
     return {
+        "timing": {
+            "total_ms": total_ms,
+            "decode_ms": decode_ms,
+            "face_roi_ms": face_ms,
+            "quality_ms": quality_ms,
+            "video_duration_s": duration_s,
+        },
         "per_algo": per_algo,
         "median_hr": median_hr,
         "quality": quality,

@@ -85,6 +85,14 @@ export interface VideoMeta {
   resolution: [number, number];
 }
 
+export interface TimingInfo {
+  totalMs: number;
+  decodeMs: number;
+  faceRoiMs: number;
+  qualityMs: number;
+  videoDurationS: number;
+}
+
 export type MeasurementStatus = 'queued' | 'processing' | 'done' | 'failed';
 
 export interface MeasurementResponse {
@@ -93,6 +101,7 @@ export interface MeasurementResponse {
   progress: number;
   stage?: string;
   videoMeta?: VideoMeta | null;
+  timing?: TimingInfo | null;
   consensus?: ConsensusResult | null;
   algorithms?: AlgorithmResult[] | null;
   warnings: string[];

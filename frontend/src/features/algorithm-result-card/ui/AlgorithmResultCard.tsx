@@ -42,6 +42,12 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
 
       {available ? (
         <>
+          <div className="flex items-baseline justify-between -mt-1">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-400">BVP</span>
+            <span className="text-[10px] text-neutral-400 tabular-nums">
+              처리 {Math.round(result.computeMs)} ms
+            </span>
+          </div>
           <BvpSparkline data={bvpSparkline} />
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
@@ -76,7 +82,14 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           )}
         </>
       ) : (
-        <p className="text-xs text-neutral-500 leading-relaxed">{error ?? '추론 어댑터 준비 중'}</p>
+        <div className="space-y-1">
+          <p className="text-xs text-neutral-500 leading-relaxed">{error ?? '추론 어댑터 준비 중'}</p>
+          {result.computeMs > 0 && (
+            <p className="text-[10px] text-neutral-400 tabular-nums">
+              처리 {Math.round(result.computeMs)} ms
+            </p>
+          )}
+        </div>
       )}
 
       {details && (

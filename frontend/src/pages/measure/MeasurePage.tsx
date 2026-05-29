@@ -16,11 +16,17 @@ const PLACEHOLDER_RESULTS: AlgorithmResult[] = ALGORITHM_DEFAULTS.map((m) => ({
   computeMs: 0,
 }));
 
+function fmtMs(ms: number) {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(1)} 초`;
+}
+
 export function MeasurePage() {
   const { data } = useMeasurement();
   const reset = useMeasurementStore((s) => s.reset);
   const algorithms = data?.algorithms ?? PLACEHOLDER_RESULTS;
   const inFlight = data && data.status !== 'done' && data.status !== 'failed';
+  const isDone = data?.status === 'done';
 
   return (
     <main className="max-w-6xl mx-auto p-6 flex flex-col gap-6">
@@ -31,23 +37,18 @@ export function MeasurePage() {
             웹캠으로 얼굴을 N초 녹화하면 8개 알고리즘이 심박 / HRV / 스트레스 지수를 추출합니다.
           </p>
         </div>
-        {data && (
-          <button
-            onClick={reset}
-            className="text-xs text-neutral-500 hover:text-neutral-800 underline"
-          >
-            새 측정
-          </button>
-        )}
       </header>
 
       {!data && <RecordPanel />}
 
       {data?.status === 'failed' && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          측정 실패: {data.error ?? '알 수 없는 오류'}
-          <button onClick={reset} className="ml-3 underline">
-            다시 시도
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 flex items-center justify-between">
+          <span>측정 실패: {data.error ?? '알 수 없는 오류'}</span>
+          <button
+            onClick={reset}
+            className="ml-3 px-3 py-1.5 rounded-full bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700"
+          >
+            다시 분석하기
           </button>
         </div>
       )}
@@ -58,6 +59,28 @@ export function MeasurePage() {
           stage={data!.stage ?? ''}
           status={data!.status}
         />
+      )}
+
+      {isDone && data?.timing && (
+        <section className="rounded-2xl border bg-white p-4 shadow-sm flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-neutral-500 uppercase tracking-wider">분석 시간</span>
+            <span className="font-semibold tabular-nums">{fmtMs(data.timing.totalMs)}</span>
+          </div>
+          <span className="text-xs text-neutral-500 tabular-nums">
+            영상 길이 {data.timing.videoDurationS.toFixed(1)} 초
+          </span>
+          <span className="text-xs text-neutral-400 tabular-nums">
+            영상 디코드 {fmtMs(data.timing.decodeMs)} · 얼굴 추적 {fmtMs(data.timing.faceRoiMs)} · 품질 평가{' '}
+            {fmtMs(data.timing.qualityMs)}
+          </span>
+          <button
+            onClick={reset}
+            className="ml-auto px-4 py-2 rounded-full bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 shadow-sm"
+          >
+            다시 분석하기
+          </button>
+        </section>
       )}
 
       {data?.consensus && (
@@ -74,6 +97,17 @@ export function MeasurePage() {
             <li key={w}>{w}</li>
           ))}
         </ul>
+      )}
+
+      {isDone && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={reset}
+            className="px-6 py-3 rounded-full bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 shadow-sm"
+          >
+            다시 분석하기
+          </button>
+        </div>
       )}
 
       <footer className="text-xs text-neutral-500 border-t pt-4">

@@ -12,5 +12,6 @@ export type {
   ReliabilityGrade,
   StressIndices,
   StressLevel,
+  TimingInfo,
   VideoMeta,
 } from './model/types';

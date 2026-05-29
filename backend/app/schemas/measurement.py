@@ -85,12 +85,21 @@ class VideoMeta(CamelModel):
     resolution: list[int]
 
 
+class TimingInfo(CamelModel):
+    total_ms: float
+    decode_ms: float
+    face_roi_ms: float
+    quality_ms: float
+    video_duration_s: float
+
+
 class MeasurementResponse(CamelModel):
     job_id: str
     status: Literal["queued", "processing", "done", "failed"]
     progress: float
     stage: str = ""
     video_meta: VideoMeta | None = None
+    timing: TimingInfo | None = None
     consensus: ConsensusResult | None = None
     algorithms: list[AlgorithmResult] | None = None
     warnings: list[str] = Field(default_factory=list)
