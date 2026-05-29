@@ -11,10 +11,10 @@ export function ReliabilityBadge({ grade, score }: { grade: ReliabilityGrade; sc
   const info = RELIABILITY_BANDS[grade];
   return (
     <span
-      className={`text-xs px-2 py-1 rounded-full font-semibold border ${STYLES[grade]}`}
-      title={info.description}
+      className={`shrink-0 whitespace-nowrap text-xs px-2 py-1 rounded-full font-semibold border ${STYLES[grade]}`}
+      title={info.full + ' — ' + info.description}
     >
-      신뢰도 {info.label} · {Math.round(score)}
+      {info.label} {Math.round(score)}
     </span>
   );
 }
