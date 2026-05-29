@@ -1,4 +1,7 @@
-import type { AlgorithmResult } from '@entities/measurement';
+import { useState } from 'react';
+
+import { ALGORITHM_DETAILS } from '@entities/algorithm/model/registry';
+import type { AlgorithmId, AlgorithmResult } from '@entities/measurement';
 
 import { BvpSparkline } from './BvpSparkline';
 import { MetricRow } from './MetricRow';
@@ -6,6 +9,9 @@ import { ReliabilityBadge } from './ReliabilityBadge';
 
 export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
   const { meta, available, hrv, stress, reliability, bvpSparkline, error, extras } = result;
+  const details = ALGORITHM_DETAILS[meta.id as AlgorithmId];
+  const [expanded, setExpanded] = useState(false);
+
   const trained =
     meta.type === 'supervised' && meta.pretrainedOn
       ? `trained on ${meta.pretrainedOn}`
@@ -55,9 +61,33 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           </div>
         </>
       ) : (
-        <p className="text-xs text-neutral-500 leading-relaxed">
-          {error ?? '추론 어댑터 준비 중'}
-        </p>
+        <p className="text-xs text-neutral-500 leading-relaxed">{error ?? '추론 어댑터 준비 중'}</p>
+      )}
+
+      {details && (
+        <details
+          className="mt-1 border-t pt-2 group"
+          open={expanded}
+          onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-neutral-500 hover:text-neutral-800 select-none flex items-center justify-between">
+            <span>분석 방식</span>
+            <span className="text-neutral-400 group-open:rotate-180 transition-transform">⌄</span>
+          </summary>
+          <div className="mt-2 space-y-2 text-[12px] leading-relaxed text-neutral-700">
+            <div>
+              <span className="font-semibold text-neutral-800">분석 대상</span>
+              <p className="mt-0.5 text-neutral-600">{details.analyzes}</p>
+            </div>
+            <div>
+              <span className="font-semibold text-neutral-800">방법</span>
+              <p className="mt-0.5 text-neutral-600">{details.methodology}</p>
+            </div>
+            {details.citation && (
+              <p className="text-[10px] text-neutral-400 italic">— {details.citation}</p>
+            )}
+          </div>
+        </details>
       )}
     </div>
   );
