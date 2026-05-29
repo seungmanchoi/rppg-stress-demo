@@ -19,6 +19,27 @@ def test_peak_detect_short_signal_returns_empty():
     assert len(bvp_to_ibi(np.zeros(10), fs=30)) == 0
 
 
+def test_peak_detect_rejects_missed_beat_artefacts():
+    """When a real beat is occasionally missed in a noisy signal, the resulting
+    IBI series must NOT show 200+ ms RMSSD; missed-beat intervals (~2x normal)
+    should be filtered out before HRV is computed."""
+    fs = 30
+    t = np.arange(0, 30, 1 / fs)
+    rng = np.random.default_rng(7)
+    # 1.5 Hz base pulse with noise + occasionally amplitude-suppressed beats
+    bvp = np.sin(2 * np.pi * 1.5 * t) + rng.normal(0, 0.4, len(t))
+    # zero-out every ~7th beat to simulate a detector miss
+    period = int(fs / 1.5)
+    for k in range(3, 45, 7):
+        center = k * period
+        if center + period // 2 < len(bvp):
+            bvp[center - period // 4 : center + period // 4] *= 0.05
+    ibi_ms = bvp_to_ibi(bvp, fs=fs)
+    assert len(ibi_ms) >= 20
+    rmssd = float(np.sqrt(np.mean(np.diff(ibi_ms) ** 2)))
+    assert rmssd < 120, f"RMSSD {rmssd:.0f} ms still too large — missed beats not filtered"
+
+
 def test_time_domain_known_series():
     ibi_ms = np.array([900.0, 920, 880, 910, 905, 895, 915, 890])
     m = time_domain_hrv(ibi_ms)
