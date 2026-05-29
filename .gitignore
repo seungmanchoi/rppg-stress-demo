@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+
+# Weights / data
+backend/weights/
+backend/tests/fixtures/*.mp4
+backend/tests/fixtures/*.npy
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Misc
+.DS_Store
+.env
+.env.local
+*.log
+/tmp/
