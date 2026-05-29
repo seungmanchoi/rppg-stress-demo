@@ -33,3 +33,15 @@ def test_composite_high_input():
 def test_composite_low_input():
     score = composite_stress(baevsky_si=80, lf_hf=0.8, rmssd=55)
     assert score < 30
+
+
+def test_composite_never_returns_zero_for_valid_hrv():
+    # Extreme relaxation that previously yielded 0
+    score = composite_stress(baevsky_si=20, lf_hf=0.2, rmssd=120)
+    assert score >= 3.0
+
+
+def test_composite_monotonic_with_baevsky():
+    a = composite_stress(baevsky_si=200, lf_hf=1.5, rmssd=35)
+    b = composite_stress(baevsky_si=800, lf_hf=1.5, rmssd=35)
+    assert b > a

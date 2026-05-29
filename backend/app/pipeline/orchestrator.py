@@ -122,6 +122,18 @@ async def run_pipeline(
             )
             continue
         ibi = bvp_to_ibi(bvp, fs)
+        # IBI 추출 실패 — 측정 자체가 실패한 케이스로 표시 (stress=0이 카드에 노출되는 것 방지)
+        if len(ibi) < 8:
+            per_algo.append(
+                {
+                    "id": aid,
+                    "meta": meta.to_dict(),
+                    "available": False,
+                    "error": f"맥파에서 박동을 충분히 검출하지 못함 (IBI {len(ibi)}개)",
+                    "compute_ms": compute_ms,
+                }
+            )
+            continue
         td = time_domain_hrv(ibi)
         fd = freq_domain_hrv(ibi)
         pc = poincare(ibi)
