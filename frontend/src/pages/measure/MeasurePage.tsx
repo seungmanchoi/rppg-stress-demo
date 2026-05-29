@@ -1,8 +1,8 @@
 import { ALGORITHM_DEFAULTS } from '@entities/algorithm/model/registry';
 import type { AlgorithmResult } from '@entities/measurement';
+import { RecordPanel } from '@features/record-video';
 import { useMeasurement } from '@features/run-measurement/model/useMeasurement';
 import { useMeasurementStore } from '@features/run-measurement/model/measurementStore';
-import { UploadDropzone } from '@features/upload-video/ui/UploadDropzone';
 import { AlgorithmCardsGrid } from '@widgets/algorithm-cards-grid/ui/AlgorithmCardsGrid';
 import { ConsensusDashboard } from '@widgets/consensus-dashboard/ui/ConsensusDashboard';
 import { MeasurementProgress } from '@widgets/measurement-progress/ui/MeasurementProgress';
@@ -10,7 +10,7 @@ import { MeasurementProgress } from '@widgets/measurement-progress/ui/Measuremen
 const PLACEHOLDER_RESULTS: AlgorithmResult[] = ALGORITHM_DEFAULTS.map((m) => ({
   meta: m,
   available: false,
-  error: '영상 업로드 후 측정됩니다',
+  error: '녹화 후 자동으로 측정됩니다',
   bvpSparkline: [],
   computeMs: 0,
 }));
@@ -27,7 +27,7 @@ export function MeasurePage() {
         <div>
           <h1 className="text-2xl font-bold">rPPG Stress Demo</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            얼굴 영상을 업로드하면 8개 알고리즘이 각각 심박 / HRV / 스트레스 지수를 추출합니다.
+            웹캠으로 얼굴을 N초 녹화하면 8개 알고리즘이 심박 / HRV / 스트레스 지수를 추출합니다.
           </p>
         </div>
         {data && (
@@ -40,7 +40,7 @@ export function MeasurePage() {
         )}
       </header>
 
-      {!data && <UploadDropzone />}
+      {!data && <RecordPanel />}
 
       {data?.status === 'failed' && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
