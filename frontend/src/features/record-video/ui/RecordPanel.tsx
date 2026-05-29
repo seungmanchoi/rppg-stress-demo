@@ -13,21 +13,23 @@ export function RecordPanel() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const handleComplete = async (file: File) => {
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const { jobId } = await uploadVideo(file);
-      setJobId(jobId);
-    } catch (e) {
-      setUploadError((e as Error).message || 'upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
+  const recorder = useRecord({
+    onComplete: async (file: File) => {
+      setUploadError(null);
+      setUploading(true);
+      recorder.stopCamera();
+      try {
+        const { jobId } = await uploadVideo(file);
+        setJobId(jobId);
+      } catch (e) {
+        setUploadError((e as Error).message || 'upload failed');
+      } finally {
+        setUploading(false);
+      }
+    },
+  });
   const { status, error, remainingMs, attachVideo, requestStream, start, stop, stopCamera } =
-    useRecord({ onComplete: handleComplete });
+    recorder;
 
   useEffect(() => {
     return () => stopCamera();
