@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { ALGORITHM_DETAILS } from '@entities/algorithm/model/registry';
 import type { AlgorithmId, AlgorithmResult } from '@entities/measurement';
+import { BAEVSKY_BANDS, stressBand } from '@shared/lib/labels';
 
 import { BvpSparkline } from './BvpSparkline';
 import { MetricRow } from './MetricRow';
@@ -44,21 +45,35 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           <BvpSparkline data={bvpSparkline} />
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <MetricRow label="HR" value={`${hrv ? Math.round(hrv.hrBpm) : '-'} BPM`} />
+            <MetricRow label="심박수" value={`${hrv ? Math.round(hrv.hrBpm) : '-'} BPM`} />
             <MetricRow label="RMSSD" value={`${hrv ? Math.round(hrv.rmssdMs) : '-'} ms`} />
             <MetricRow label="LF/HF" value={hrv ? hrv.lfHfRatio.toFixed(2) : '-'} />
-            <MetricRow label="Baev SI" value={stress ? Math.round(stress.baevskySi).toString() : '-'} />
             <MetricRow
-              label="Stress"
-              highlight
+              label="Baev SI"
               value={
-                stress ? `${Math.round(stress.compositeScore)} (${stress.compositeLevel})` : '-'
+                stress
+                  ? `${Math.round(stress.baevskySi)} (${BAEVSKY_BANDS[stress.baevskyLevel].label})`
+                  : '-'
               }
             />
             {extras && typeof extras.respirationRpm === 'number' ? (
               <MetricRow label="호흡" value={`${Math.round(extras.respirationRpm as number)} /min`} />
             ) : null}
           </div>
+          {stress && (
+            <div
+              className="rounded-lg px-3 py-2 text-sm flex items-baseline justify-between"
+              style={{
+                backgroundColor: `${stressBand(stress.compositeLevel).color}1a`,
+                color: stressBand(stress.compositeLevel).color,
+              }}
+            >
+              <span className="text-[11px] uppercase tracking-wider opacity-80">스트레스</span>
+              <span className="font-semibold">
+                {Math.round(stress.compositeScore)} / 100 · {stressBand(stress.compositeLevel).label}
+              </span>
+            </div>
+          )}
         </>
       ) : (
         <p className="text-xs text-neutral-500 leading-relaxed">{error ?? '추론 어댑터 준비 중'}</p>
