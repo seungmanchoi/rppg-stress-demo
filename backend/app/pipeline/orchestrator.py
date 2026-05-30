@@ -116,7 +116,6 @@ async def run_pipeline(
 
     # Per-algorithm HRV + stress
     per_algo: list[dict] = []
-    hr_values: list[float] = []
     for aid, bvp, compute_ms, err in results_raw:
         meta = get_meta(aid)
         if err or bvp is None or len(bvp) == 0:
@@ -161,8 +160,6 @@ async def run_pipeline(
             continue
         comp = composite_stress(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
         snr = bvp_snr_db(bvp, fs)
-        if td.hr_bpm > 0:
-            hr_values.append(td.hr_bpm)
         per_algo.append(
             {
                 "id": aid,
@@ -179,7 +176,44 @@ async def run_pipeline(
                 "compute_ms": compute_ms,
             }
         )
-    median_hr = float(np.median(hr_values)) if hr_values else 0.0
+    # Reference HR from unsupervised algorithms only (POS/CHROM/OMIT) —
+    # they don't share the supervised models' harmonic-lock failure mode.
+    unsup_hrs = [
+        a["hrv"].hr_bpm
+        for a in per_algo
+        if a.get("available") and a["id"] in UNSUP_IDS and a["hrv"].hr_bpm > 0
+    ]
+    reference_hr = float(np.median(unsup_hrs)) if len(unsup_hrs) >= 2 else 0.0
+
+    # HR sanity check: any card whose HR is >25 BPM off the unsupervised reference
+    # is almost certainly harmonic-locked or otherwise broken. Demote it.
+    HR_SANITY_TOLERANCE_BPM = 25.0
+    if reference_hr > 0:
+        for a in per_algo:
+            if not a.get("available"):
+                continue
+            hr_dev = abs(a["hrv"].hr_bpm - reference_hr)
+            if hr_dev > HR_SANITY_TOLERANCE_BPM:
+                meta = a["meta"]
+                a.clear()
+                a.update(
+                    {
+                        "id": meta["id"],
+                        "meta": meta,
+                        "available": False,
+                        "error": (
+                            f"심박수 추정 실패 — {int(round(hr_dev))} BPM 벗어남 "
+                            f"(기준 {int(round(reference_hr))} BPM)"
+                        ),
+                        "compute_ms": 0,
+                    }
+                )
+
+    median_hr = (
+        float(np.median([a["hrv"].hr_bpm for a in per_algo if a.get("available") and a["hrv"].hr_bpm > 0]))
+        if any(a.get("available") for a in per_algo)
+        else 0.0
+    )
 
     # Reliability
     for a in per_algo:

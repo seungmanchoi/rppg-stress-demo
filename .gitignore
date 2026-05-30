@@ -21,3 +21,6 @@ dist/
 .env.local
 *.log
 /tmp/
+
+# Tooling indexes
+.codegraph/

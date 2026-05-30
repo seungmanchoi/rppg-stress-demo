@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { uploadVideo } from '@shared/api/measurements';
 import { useMeasurementStore } from '@features/run-measurement/model/measurementStore';
 
+import { useFaceTracker } from '../model/useFaceTracker';
 import { useRecord } from '../model/useRecord';
 
 const DURATIONS = [15, 30, 45, 60] as const;
@@ -12,12 +13,19 @@ export function RecordPanel() {
   const [seconds, setSeconds] = useState<number>(30);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [permError, setPermError] = useState<string | null>(null);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const rawStreamRef = useRef<MediaStream | null>(null);
+  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const tracker = useFaceTracker();
 
   const recorder = useRecord({
     onComplete: async (file: File) => {
       setUploadError(null);
       setUploading(true);
-      recorder.stopCamera();
+      stopCamera();
       try {
         const { jobId } = await uploadVideo(file);
         setJobId(jobId);
@@ -28,14 +36,61 @@ export function RecordPanel() {
       }
     },
   });
-  const { status, error, remainingMs, attachVideo, requestStream, start, stop, stopCamera } =
-    recorder;
+  const { status, error, remainingMs, setRecordingStream, start, stop } = recorder;
 
+  const attachHidden = useCallback(
+    (el: HTMLVideoElement | null) => {
+      hiddenVideoRef.current = el;
+      tracker.attachVideo(el);
+    },
+    [tracker],
+  );
+
+  const stopCamera = useCallback(() => {
+    tracker.stop();
+    rawStreamRef.current?.getTracks().forEach((t) => t.stop());
+    rawStreamRef.current = null;
+    setRecordingStream(null);
+    setCameraOn(false);
+  }, [tracker, setRecordingStream]);
+
+  const requestCamera = useCallback(async () => {
+    setPermError(null);
+    setRequesting(true);
+    try {
+      const raw = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+        audio: false,
+      });
+      rawStreamRef.current = raw;
+      await tracker.start(raw);
+      setCameraOn(true);
+    } catch (e) {
+      setPermError((e as Error).message || 'camera access denied');
+    } finally {
+      setRequesting(false);
+    }
+  }, [tracker]);
+
+  const handleStart = useCallback(
+    (secs: number) => {
+      const canvasStream = tracker.getCanvasStream();
+      if (!canvasStream) {
+        setUploadError('얼굴 추적 canvas 준비 실패');
+        return;
+      }
+      setRecordingStream(canvasStream);
+      start(secs);
+    },
+    [tracker, setRecordingStream, start],
+  );
+
+  const stopCameraRef = useRef(stopCamera);
+  stopCameraRef.current = stopCamera;
   useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+    return () => stopCameraRef.current();
+  }, []);
 
-  const cameraOn = status === 'preview' || status === 'recording' || status === 'finalizing';
   const isRecording = status === 'recording';
 
   return (
@@ -44,7 +99,7 @@ export function RecordPanel() {
         <div>
           <h2 className="text-base font-semibold">웹캠으로 직접 측정</h2>
           <p className="text-xs text-neutral-500 mt-0.5">
-            정면 / 균일 조명 / 움직임 최소화. 녹화 후 자동으로 분석이 시작됩니다.
+            얼굴만 자동으로 추적·크롭됩니다. 머리를 움직여도 얼굴만 영상에 담깁니다.
           </p>
         </div>
         {cameraOn && (
@@ -57,25 +112,44 @@ export function RecordPanel() {
         )}
       </header>
 
-      <div className="relative bg-neutral-900 rounded-xl overflow-hidden aspect-video">
+      <div className="relative bg-neutral-900 rounded-xl overflow-hidden aspect-square mx-auto w-full max-w-md">
         <video
-          ref={attachVideo}
+          ref={attachHidden}
           autoPlay
           playsInline
           muted
+          className="absolute opacity-0 pointer-events-none w-px h-px -z-10"
+        />
+        <canvas
+          ref={tracker.attachCanvas}
           className="w-full h-full object-cover transform -scale-x-100"
         />
-        {!cameraOn && (
+        {!cameraOn && !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-400 gap-3">
             <CameraIcon />
             <p className="text-sm">카메라가 꺼져 있습니다</p>
             <button
-              onClick={requestStream}
-              disabled={status === 'requesting'}
+              onClick={requestCamera}
+              disabled={requesting}
               className="px-4 py-2 bg-sky-500 text-white rounded-full text-sm font-medium hover:bg-sky-600 disabled:opacity-60"
             >
-              {status === 'requesting' ? '권한 요청 중…' : '카메라 켜기'}
+              {requesting ? '권한 요청 중…' : '카메라 켜기'}
             </button>
+          </div>
+        )}
+        {cameraOn && tracker.loading && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">
+            얼굴 검출기 로드 중…
+          </div>
+        )}
+        {cameraOn && !tracker.loading && !tracker.faceDetected && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white text-xs px-2 py-1 rounded-full">
+            얼굴을 화면 안에 두세요
+          </div>
+        )}
+        {cameraOn && tracker.faceDetected && !isRecording && (
+          <div className="absolute top-3 left-3 bg-emerald-500/90 text-white text-xs px-2 py-1 rounded-full">
+            얼굴 추적 중
           </div>
         )}
         {isRecording && (
@@ -119,8 +193,10 @@ export function RecordPanel() {
             ))}
           </div>
           <button
-            onClick={() => start(seconds)}
-            className="ml-auto px-5 py-2 bg-rose-500 text-white rounded-full text-sm font-semibold hover:bg-rose-600"
+            onClick={() => handleStart(seconds)}
+            disabled={!tracker.faceDetected}
+            className="ml-auto px-5 py-2 bg-rose-500 text-white rounded-full text-sm font-semibold hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={tracker.faceDetected ? '' : '얼굴이 잡혀야 시작할 수 있습니다'}
           >
             {seconds}초 녹화 시작
           </button>
@@ -138,8 +214,10 @@ export function RecordPanel() {
         </div>
       )}
 
-      {(error || uploadError) && (
-        <p className="text-sm text-rose-600">{error ?? uploadError}</p>
+      {(error || uploadError || permError || tracker.error) && (
+        <p className="text-sm text-rose-600">
+          {error ?? uploadError ?? permError ?? tracker.error}
+        </p>
       )}
 
       <p className="text-[11px] text-neutral-400 leading-relaxed">

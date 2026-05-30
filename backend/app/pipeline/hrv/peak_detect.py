@@ -56,7 +56,7 @@ def bvp_to_ibi(bvp: np.ndarray, fs: float) -> np.ndarray:
         freqs = np.fft.rfftfreq(n, 1 / fs)
         peak_pow = float(spec[(freqs >= hr_hz - 0.05) & (freqs <= hr_hz + 0.05)].sum())
         half_pow = float(spec[(freqs >= half_hz - 0.05) & (freqs <= half_hz + 0.05)].sum())
-        if half_hz >= 0.7 and half_pow > peak_pow * 0.4:
+        if half_hz >= 0.7 and half_pow > peak_pow * 0.25:
             hr_hz = half_hz
 
     if hr_hz <= 0:

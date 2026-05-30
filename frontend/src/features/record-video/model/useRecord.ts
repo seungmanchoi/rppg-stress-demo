@@ -39,6 +39,10 @@ export function useRecord({ onComplete }: UseRecordOptions) {
     }
   }, []);
 
+  const setRecordingStream = useCallback((stream: MediaStream | null) => {
+    streamRef.current = stream;
+  }, []);
+
   const cleanupTimers = useCallback(() => {
     if (stopTimerRef.current !== null) {
       window.clearTimeout(stopTimerRef.current);
@@ -163,6 +167,7 @@ export function useRecord({ onComplete }: UseRecordOptions) {
     remainingMs,
     attachVideo,
     requestStream,
+    setRecordingStream,
     start,
     stop,
     stopCamera: stopStream,
