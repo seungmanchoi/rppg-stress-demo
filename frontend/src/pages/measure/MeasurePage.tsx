@@ -6,6 +6,7 @@ import { useMeasurementStore } from '@features/run-measurement/model/measurement
 import { AlgorithmCardsGrid } from '@widgets/algorithm-cards-grid/ui/AlgorithmCardsGrid';
 import { ConsensusDashboard } from '@widgets/consensus-dashboard/ui/ConsensusDashboard';
 import { MeasurementProgress } from '@widgets/measurement-progress/ui/MeasurementProgress';
+import { MetricsGlossary } from '@widgets/metrics-glossary';
 import { StressFormula } from '@widgets/stress-formula';
 
 const PLACEHOLDER_RESULTS: AlgorithmResult[] = ALGORITHM_DEFAULTS.map((m) => ({
@@ -86,6 +87,8 @@ export function MeasurePage() {
       {data?.consensus && (
         <ConsensusDashboard data={data.consensus} totalAlgorithms={ALGORITHM_DEFAULTS.length} />
       )}
+
+      <MetricsGlossary />
 
       <AlgorithmCardsGrid results={algorithms} />
 
