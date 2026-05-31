@@ -80,6 +80,39 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
               </span>
             </div>
           )}
+
+          {reliability?.components && (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 px-3 py-2 text-[11px] leading-snug">
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="uppercase tracking-wider text-neutral-500">신뢰도 세부</span>
+                <span className="text-neutral-700 tabular-nums">
+                  합의 가중치 <b className="font-semibold">{Math.max(0, Math.round(reliability.score - 30))}</b> / 70
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-neutral-700 tabular-nums">
+                <ReliabilityRow
+                  label="신호품질 (SNR)"
+                  value={`${reliability.components.snrDb.toFixed(1)} dB`}
+                  weight="30%"
+                />
+                <ReliabilityRow
+                  label="얼굴 추적"
+                  value={`${reliability.components.faceTrackingPct.toFixed(0)} %`}
+                  weight="25%"
+                />
+                <ReliabilityRow
+                  label="HR 편차"
+                  value={`${reliability.components.deviationFromConsensus >= 0 ? '+' : ''}${reliability.components.deviationFromConsensus.toFixed(1)} BPM`}
+                  weight="25%"
+                />
+                <ReliabilityRow
+                  label="움직임"
+                  value={`${reliability.components.motionPenalty.toFixed(1)} px`}
+                  weight="20%"
+                />
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="space-y-1">
@@ -117,6 +150,17 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+function ReliabilityRow({ label, value, weight }: { label: string; value: string; weight: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 min-w-0">
+      <span className="text-neutral-500 truncate">
+        {label} <span className="text-neutral-400">· {weight}</span>
+      </span>
+      <span className="text-neutral-800 font-medium shrink-0">{value}</span>
     </div>
   );
 }
