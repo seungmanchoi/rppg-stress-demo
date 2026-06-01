@@ -3,13 +3,28 @@ import { useState } from 'react';
 import { ALGORITHM_DETAILS } from '@entities/algorithm/model/registry';
 import type { AlgorithmId, AlgorithmResult } from '@entities/measurement';
 import { BAEVSKY_BANDS, stressBand } from '@shared/lib/labels';
+import { TIER_STYLES, type MetricTier } from '@shared/lib/metricTiers';
 
 import { BvpSparkline } from './BvpSparkline';
 import { MetricRow } from './MetricRow';
 import { ReliabilityBadge } from './ReliabilityBadge';
 
+const fmt = (n: number | undefined | null, digits = 1, fallback = '-') =>
+  n === undefined || n === null || !Number.isFinite(n) ? fallback : n.toFixed(digits);
+
 export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
-  const { meta, available, hrv, stress, reliability, bvpSparkline, error, extras } = result;
+  const {
+    meta,
+    available,
+    hrv,
+    stress,
+    reliability,
+    respiration,
+    hemodynamic,
+    signalQuality,
+    bvpSparkline,
+    error,
+  } = result;
   const details = ALGORITHM_DETAILS[meta.id as AlgorithmId];
   const [expanded, setExpanded] = useState(false);
 
@@ -50,22 +65,35 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           </div>
           <BvpSparkline data={bvpSparkline} />
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <MetricRow label="심박수" value={`${hrv ? Math.round(hrv.hrBpm) : '-'} BPM`} />
-            <MetricRow label="RMSSD" value={`${hrv ? Math.round(hrv.rmssdMs) : '-'} ms`} />
-            <MetricRow label="LF/HF" value={hrv ? hrv.lfHfRatio.toFixed(2) : '-'} />
-            <MetricRow
-              label="Baev SI"
-              value={
-                stress
-                  ? `${Math.round(stress.baevskySi)} (${BAEVSKY_BANDS[stress.baevskyLevel].label})`
-                  : '-'
-              }
-            />
-            {extras && typeof extras.respirationRpm === 'number' ? (
-              <MetricRow label="호흡" value={`${Math.round(extras.respirationRpm as number)} /min`} />
-            ) : null}
-          </div>
+          {/* 핵심 HRV (clinical) */}
+          <TierBox tier="clinical" label="핵심 HRV (임상 표준)">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <MetricRow label="심박수" value={`${hrv ? Math.round(hrv.hrBpm) : '-'} BPM`} />
+              <MetricRow label="SDNN" value={`${fmt(hrv?.sdnnMs, 0)} ms`} />
+              <MetricRow label="RMSSD" value={`${fmt(hrv?.rmssdMs, 0)} ms`} />
+              <MetricRow label="SDSD" value={`${fmt(hrv?.sdsdMs, 0)} ms`} />
+              <MetricRow label="pNN50" value={`${fmt(hrv?.pnn50Pct, 1)} %`} />
+              <MetricRow label="pNN20" value={`${fmt(hrv?.pnn20Pct, 1)} %`} />
+              <MetricRow label="CVnn" value={`${fmt(hrv?.cvnnPct, 2)} %`} />
+              <MetricRow label="HRV TI" value={fmt(hrv?.hrvTriangularIndex, 1)} />
+              <MetricRow label="LF/HF" value={fmt(hrv?.lfHfRatio, 2)} />
+              <MetricRow
+                label="LFnu / HFnu"
+                value={`${fmt(hrv?.lfNu, 0)} / ${fmt(hrv?.hfNu, 0)}`}
+              />
+              <MetricRow
+                label="Baev SI"
+                value={
+                  stress
+                    ? `${Math.round(stress.baevskySi)} (${BAEVSKY_BANDS[stress.baevskyLevel].label})`
+                    : '-'
+                }
+              />
+              <MetricRow label="SD1 / SD2" value={`${fmt(hrv?.sd1, 0)} / ${fmt(hrv?.sd2, 0)}`} />
+            </div>
+          </TierBox>
+
+          {/* Composite (this demo's blend — experimental) */}
           {stress && (
             <div
               className="rounded-lg px-3 py-2 text-sm flex items-baseline justify-between"
@@ -79,6 +107,74 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
                 {Math.round(stress.compositeScore)} / 100 · {stressBand(stress.compositeLevel).label}
               </span>
             </div>
+          )}
+
+          {/* 상용 표준: Kubios + HeartMath */}
+          {stress && (
+            <TierBox tier="commercial" label="상용 표준 — Kubios · HeartMath">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <MetricRow label="PNS Index" value={fmt(stress.pnsIndex, 2)} />
+                <MetricRow label="SNS Index" value={fmt(stress.snsIndex, 2)} />
+                <MetricRow label="Coherence" value={`${fmt(stress.coherenceScore, 2)} / 3`} />
+                <MetricRow label="공명 주파수" value={`${fmt(stress.coherencePeakHz, 3)} Hz`} />
+                <MetricRow label="AMo" value={`${fmt(stress.baevskyAmoPct, 1)} %`} />
+                <MetricRow label="MxDMn" value={`${fmt(stress.baevskyMxdmnS, 2)} s`} />
+              </div>
+            </TierBox>
+          )}
+
+          {/* 호흡 (commercial) */}
+          {respiration && respiration.rateRpm > 0 && (
+            <TierBox tier="commercial" label="호흡 — BVP envelope (Karlen 2013)">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <MetricRow label="호흡수" value={`${fmt(respiration.rateRpm, 1)} /min`} />
+                <MetricRow label="신뢰도" value={fmt(respiration.confidence, 2)} />
+              </div>
+            </TierBox>
+          )}
+
+          {/* 학계 검증: 비선형 + 주파수 + 신호 품질 */}
+          <TierBox tier="research" label="비선형 HRV · 학계 검증">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <MetricRow label="SD2/SD1" value={fmt(hrv?.sdRatio, 2)} />
+              <MetricRow label="Ellipse Area" value={`${fmt(hrv?.ellipseArea, 0)} ms²`} />
+              <MetricRow label="Sample Entropy" value={fmt(hrv?.sampleEntropy, 2)} />
+              <MetricRow label="Approx. Entropy" value={fmt(hrv?.approximateEntropy, 2)} />
+              <MetricRow label="Shannon Entropy" value={`${fmt(hrv?.shannonEntropy, 2)} bits`} />
+              <MetricRow label="DFA α1" value={fmt(hrv?.dfaAlpha1, 2)} />
+              <MetricRow label="Higuchi FD" value={fmt(hrv?.higuchiFd, 2)} />
+              <MetricRow label="LF / HF Power" value={`${fmt(hrv?.lfPower, 1)} / ${fmt(hrv?.hfPower, 1)}`} />
+              <MetricRow label="Total Power" value={`${fmt(hrv?.totalPower, 1)} ms²`} />
+              {signalQuality && (
+                <>
+                  <MetricRow label="PQI" value={`${fmt(signalQuality.pqi, 0)} / 100`} />
+                  <MetricRow label="Spec. Entropy" value={fmt(signalQuality.spectralEntropy, 3)} />
+                </>
+              )}
+            </div>
+          </TierBox>
+
+          {/* 실험적: VLF + Pulse morphology */}
+          <TierBox tier="experimental" label="실험적 — VLF · 맥파 형태">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <MetricRow label="VLF Power" value={`${fmt(hrv?.vlfPower, 1)} ms²`} />
+              {hemodynamic && (
+                <MetricRow
+                  label="Pulse Rise Time"
+                  value={`${fmt(hemodynamic.pulseRiseTimeMs, 0)} ms`}
+                />
+              )}
+            </div>
+          </TierBox>
+
+          {/* RGB 추정: SpO2 */}
+          {hemodynamic && hemodynamic.spo2Pct > 0 && (
+            <TierBox tier="rgbEstimated" label="RGB 추정 — 의료기기 대비 큰 오차 가능">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <MetricRow label="SpO2" value={`${fmt(hemodynamic.spo2Pct, 1)} %`} />
+                <MetricRow label="SpO2 신뢰도" value={fmt(hemodynamic.spo2Confidence, 2)} />
+              </div>
+            </TierBox>
           )}
 
           {reliability?.components && (
@@ -150,6 +246,31 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+function TierBox({
+  tier,
+  label,
+  children,
+}: {
+  tier: MetricTier;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const s = TIER_STYLES[tier];
+  return (
+    <div className={`rounded-lg border ${s.boxClass} px-3 py-2`}>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-neutral-600 font-semibold">
+          {label}
+        </span>
+        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${s.chipClass}`}>
+          {s.badge}
+        </span>
+      </div>
+      {children}
     </div>
   );
 }

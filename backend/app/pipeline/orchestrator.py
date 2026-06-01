@@ -10,17 +10,22 @@ from pathlib import Path
 import numpy as np
 
 from app.models.registry import get_meta
+from app.pipeline.experimental.spo2_rgb import estimate_spo2_rgb
 from app.pipeline.hrv.freq_domain import freq_domain_hrv
-from app.pipeline.hrv.nonlinear import poincare
+from app.pipeline.hrv.nonlinear import nonlinear_hrv, poincare
 from app.pipeline.hrv.peak_detect import bvp_to_ibi
 from app.pipeline.hrv.time_domain import time_domain_hrv
+from app.pipeline.morphology.bvp_quality import bvp_quality
 from app.pipeline.preprocess.face_roi import extract_roi_signal
 from app.pipeline.preprocess.frame_decoder import decode_video
 from app.pipeline.preprocess.quality_gate import assess
 from app.pipeline.reliability.scoring import reliability_grade, reliability_score
 from app.pipeline.reliability.snr import bvp_snr_db
+from app.pipeline.respiration.bvp_resp import respiration_from_bvp
 from app.pipeline.stress.baevsky import baevsky_si
+from app.pipeline.stress.coherence import cardiac_coherence
 from app.pipeline.stress.composite import composite_level, composite_stress
+from app.pipeline.stress.kubios import kubios_indices
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +150,7 @@ async def run_pipeline(
         td = time_domain_hrv(ibi)
         fd = freq_domain_hrv(ibi)
         pc = poincare(ibi)
+        nl = nonlinear_hrv(ibi)
         bv = baevsky_si(ibi)
         # 주파수 분석이 실패한 (LF/HF=0) 케이스도 측정 부정확으로 강등
         if fd.lf_hf_ratio == 0 and bv.si == 0:
@@ -160,6 +166,18 @@ async def run_pipeline(
             continue
         comp = composite_stress(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
         snr = bvp_snr_db(bvp, fs)
+        kubios = kubios_indices(
+            mean_rr_ms=td.ibi_mean_ms,
+            rmssd_ms=td.rmssd_ms,
+            hf_nu=fd.hf_nu,
+            hr_bpm=td.hr_bpm,
+            baevsky_si=bv.si,
+            lf_nu=fd.lf_nu,
+        )
+        coh = cardiac_coherence(ibi)
+        resp = respiration_from_bvp(bvp, fs)
+        bvp_q = bvp_quality(bvp, fs)
+        spo2 = estimate_spo2_rgb(rgb_signal, fs)
         per_algo.append(
             {
                 "id": aid,
@@ -170,9 +188,15 @@ async def run_pipeline(
                 "hrv": td,
                 "freq": fd,
                 "poincare": pc,
+                "nonlinear": nl,
                 "baevsky": bv,
                 "composite": comp,
                 "snr_db": snr,
+                "kubios": kubios,
+                "coherence": coh,
+                "respiration": resp,
+                "bvp_quality": bvp_q,
+                "spo2": spo2,
                 "compute_ms": compute_ms,
             }
         )

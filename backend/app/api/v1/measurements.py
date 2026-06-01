@@ -17,10 +17,13 @@ from app.schemas.measurement import (
     AlgorithmMetaOut,
     AlgorithmResult,
     ConsensusResult,
+    HemodynamicMetrics,
     HRVMetrics,
     MeasurementResponse,
     Reliability,
     ReliabilityComponents,
+    RespirationMetrics,
+    SignalQuality,
     StressIndices,
     VideoMeta,
 )
@@ -59,16 +62,34 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
             ibi_mean_ms=a["hrv"].ibi_mean_ms,
             sdnn_ms=a["hrv"].sdnn_ms,
             rmssd_ms=a["hrv"].rmssd_ms,
+            sdsd_ms=a["hrv"].sdsd_ms,
             pnn50_pct=a["hrv"].pnn50_pct,
+            pnn20_pct=a["hrv"].pnn20_pct,
+            cvnn_pct=a["hrv"].cvnn_pct,
+            hrv_triangular_index=a["hrv"].hrv_triangular_index,
+            vlf_power=a["freq"].vlf_power,
             lf_power=a["freq"].lf_power,
             hf_power=a["freq"].hf_power,
+            total_power=a["freq"].total_power,
             lf_hf_ratio=a["freq"].lf_hf_ratio,
+            lf_nu=a["freq"].lf_nu,
+            hf_nu=a["freq"].hf_nu,
             sd1=a["poincare"].sd1,
             sd2=a["poincare"].sd2,
+            sd_ratio=a["poincare"].sd_ratio,
+            ellipse_area=a["poincare"].ellipse_area,
+            sample_entropy=a["nonlinear"].sample_entropy,
+            approximate_entropy=a["nonlinear"].approximate_entropy,
+            shannon_entropy=a["nonlinear"].shannon_entropy,
+            dfa_alpha1=a["nonlinear"].dfa_alpha1,
+            higuchi_fd=a["nonlinear"].higuchi_fd,
         )
         stress = StressIndices(
             baevsky_si=a["baevsky"].si,
             baevsky_level=a["baevsky"].level,
+            baevsky_mo_s=a["baevsky"].mo_s,
+            baevsky_amo_pct=a["baevsky"].amo_pct,
+            baevsky_mxdmn_s=a["baevsky"].mxdmn_s,
             composite_score=a["composite"],
             composite_level=(
                 "low" if a["composite"] < 30
@@ -76,6 +97,10 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
                 else "high" if a["composite"] < 80
                 else "very_high"
             ),
+            pns_index=a["kubios"].pns_index,
+            sns_index=a["kubios"].sns_index,
+            coherence_score=a["coherence"].score,
+            coherence_peak_hz=a["coherence"].peak_freq_hz,
         )
         rel = Reliability(
             score=a["reliability"],
@@ -89,6 +114,19 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
                 motion_penalty=quality.mean_motion_px,
             ),
         )
+        respiration = RespirationMetrics(
+            rate_rpm=a["respiration"].rate_rpm,
+            confidence=a["respiration"].confidence,
+        )
+        hemodynamic = HemodynamicMetrics(
+            spo2_pct=a["spo2"].spo2_pct,
+            spo2_confidence=a["spo2"].confidence,
+            pulse_rise_time_ms=a["bvp_quality"].pulse_rise_time_ms,
+        )
+        signal_quality = SignalQuality(
+            pqi=a["bvp_quality"].pqi,
+            spectral_entropy=a["bvp_quality"].spectral_entropy,
+        )
         out.append(
             AlgorithmResult(
                 meta=meta,
@@ -96,6 +134,9 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
                 hrv=hrv,
                 stress=stress,
                 reliability=rel,
+                respiration=respiration,
+                hemodynamic=hemodynamic,
+                signal_quality=signal_quality,
                 bvp_sparkline=_downsample(a["bvp"]),
                 compute_ms=a.get("compute_ms", 0),
             )

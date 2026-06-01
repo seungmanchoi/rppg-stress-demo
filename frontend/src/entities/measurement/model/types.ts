@@ -19,16 +19,34 @@ export interface AlgorithmMeta {
 }
 
 export interface HRVMetrics {
+  // Time-domain (ESC/NASPE 1996)
   hrBpm: number;
   ibiMeanMs: number;
   sdnnMs: number;
   rmssdMs: number;
+  sdsdMs: number;
   pnn50Pct: number;
+  pnn20Pct: number;
+  cvnnPct: number;
+  hrvTriangularIndex: number;
+  // Frequency-domain
+  vlfPower: number;
   lfPower: number;
   hfPower: number;
+  totalPower: number;
   lfHfRatio: number;
+  lfNu: number;
+  hfNu: number;
+  // Non-linear
   sd1: number;
   sd2: number;
+  sdRatio: number;
+  ellipseArea: number;
+  sampleEntropy: number;
+  approximateEntropy: number;
+  shannonEntropy: number;
+  dfaAlpha1: number;
+  higuchiFd: number;
 }
 
 export type BaevskyLevel = 'normal' | 'mild' | 'moderate' | 'high';
@@ -38,9 +56,32 @@ export type ReliabilityGrade = 'low' | 'medium' | 'high';
 export interface StressIndices {
   baevskySi: number;
   baevskyLevel: BaevskyLevel;
+  baevskyMoS: number;
+  baevskyAmoPct: number;
+  baevskyMxdmnS: number;
   lfHfStress: number;
   compositeScore: number;
   compositeLevel: StressLevel;
+  pnsIndex: number;
+  snsIndex: number;
+  coherenceScore: number;
+  coherencePeakHz: number;
+}
+
+export interface HemodynamicMetrics {
+  spo2Pct: number;
+  spo2Confidence: number;
+  pulseRiseTimeMs: number;
+}
+
+export interface RespirationMetrics {
+  rateRpm: number;
+  confidence: number;
+}
+
+export interface SignalQuality {
+  pqi: number;
+  spectralEntropy: number;
 }
 
 export interface ReliabilityComponents {
@@ -63,6 +104,9 @@ export interface AlgorithmResult {
   hrv?: HRVMetrics | null;
   stress?: StressIndices | null;
   reliability?: Reliability | null;
+  respiration?: RespirationMetrics | null;
+  hemodynamic?: HemodynamicMetrics | null;
+  signalQuality?: SignalQuality | null;
   bvpSparkline: number[];
   extras?: Record<string, unknown> | null;
   computeMs: number;
