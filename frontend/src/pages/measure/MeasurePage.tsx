@@ -88,8 +88,6 @@ export function MeasurePage() {
         <ConsensusDashboard data={data.consensus} totalAlgorithms={ALGORITHM_DEFAULTS.length} />
       )}
 
-      <MetricsGlossary />
-
       <AlgorithmCardsGrid results={algorithms} />
 
       <StressFormula />
@@ -112,6 +110,8 @@ export function MeasurePage() {
           </button>
         </div>
       )}
+
+      <MetricsGlossary />
 
       <footer className="text-xs text-neutral-500 border-t pt-4">
         ⚠ Not a medical device. Educational / research use only.
