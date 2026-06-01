@@ -24,7 +24,8 @@ from app.pipeline.reliability.snr import bvp_snr_db
 from app.pipeline.respiration.bvp_resp import respiration_from_bvp
 from app.pipeline.stress.baevsky import baevsky_si
 from app.pipeline.stress.coherence import cardiac_coherence
-from app.pipeline.stress.composite import composite_level, composite_stress
+from app.pipeline.stress.composite import composite_level, composite_stress, composite_stress_breakdown
+from app.pipeline.stress.composite_v2 import composite_stress_v2
 from app.pipeline.stress.kubios import kubios_indices
 
 log = logging.getLogger(__name__)
@@ -164,7 +165,7 @@ async def run_pipeline(
                 }
             )
             continue
-        comp = composite_stress(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
+        v1 = composite_stress_breakdown(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
         snr = bvp_snr_db(bvp, fs)
         kubios = kubios_indices(
             mean_rr_ms=td.ibi_mean_ms,
@@ -178,6 +179,17 @@ async def run_pipeline(
         resp = respiration_from_bvp(bvp, fs)
         bvp_q = bvp_quality(bvp, fs)
         spo2 = estimate_spo2_rgb(rgb_signal, fs)
+        v2 = composite_stress_v2(
+            baevsky_si=bv.si,
+            lf_hf=fd.lf_hf_ratio,
+            rmssd_ms=td.rmssd_ms,
+            sns_index=kubios.sns_index,
+            pns_index=kubios.pns_index,
+            sample_entropy=nl.sample_entropy,
+            dfa_alpha1=nl.dfa_alpha1,
+            coherence=coh.score,
+            respiration_rpm=resp.rate_rpm,
+        )
         per_algo.append(
             {
                 "id": aid,
@@ -190,7 +202,9 @@ async def run_pipeline(
                 "poincare": pc,
                 "nonlinear": nl,
                 "baevsky": bv,
-                "composite": comp,
+                "composite": v1.score,
+                "composite_v1": v1,
+                "composite_v2": v2,
                 "snr_db": snr,
                 "kubios": kubios,
                 "coherence": coh,

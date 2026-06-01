@@ -248,11 +248,19 @@ const GROUPS: MetricGroup[] = [
         tier: 'commercial',
       },
       {
-        name: '스트레스 점수 (Composite)',
+        name: '스트레스 v1 (클래식, 3 지표)',
         unit: '0~100',
         normal: '구간별 라벨',
-        meaning: 'norm_baev·0.4 + norm_lfhf·0.4 + norm_rmssd·0.2. 본 데모 자체 합성.',
-        tier: 'experimental',
+        meaning: 'norm_baev·0.40 + norm_lfhf·0.40 + norm_rmssd·0.20. ESC/NASPE 1996 + 러시아 Baevsky 보수적 공식.',
+        tier: 'clinical',
+      },
+      {
+        name: '스트레스 v2 (자율신경 종합, 9 지표)',
+        unit: '0~100',
+        normal: '구간별 라벨',
+        meaning:
+          'v1의 3 지표(0.45) + Kubios SNS·PNS(0.20) + SampEn·DFA α1 dev(0.15) + Coherence·호흡 dev(0.20). 단일 지표 편향 감소.',
+        tier: 'research',
       },
     ],
   },

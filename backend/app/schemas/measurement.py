@@ -43,6 +43,23 @@ class HRVMetrics(CamelModel):
     higuchi_fd: float
 
 
+class StressComponent(CamelModel):
+    name: str
+    label: str
+    weight: float
+    raw_value: float
+    raw_unit: str
+    normalized: float
+    contribution: float
+    tier: Literal["clinical", "commercial", "research", "experimental", "rgbEstimated"]
+
+
+class CompositeBreakdown(CamelModel):
+    score: float
+    level: Literal["low", "mid", "high", "very_high"]
+    components: list[StressComponent] = Field(default_factory=list)
+
+
 class StressIndices(CamelModel):
     # Baevsky (Russia)
     baevsky_si: float
@@ -50,10 +67,15 @@ class StressIndices(CamelModel):
     baevsky_mo_s: float = 0.0
     baevsky_amo_pct: float = 0.0
     baevsky_mxdmn_s: float = 0.0
-    # Composite (this demo)
+    # Composite v1 (this demo, 3-metric classical)
     lf_hf_stress: float = 0.0
     composite_score: float
     composite_level: Literal["low", "mid", "high", "very_high"]
+    composite_v1: CompositeBreakdown | None = None
+    # Composite v2 (extended autonomic balance ensemble — 9 metrics)
+    composite_score_v2: float = 0.0
+    composite_level_v2: Literal["low", "mid", "high", "very_high"] = "low"
+    composite_v2: CompositeBreakdown | None = None
     # Kubios-style autonomic balance (-2..+2)
     pns_index: float = 0.0
     sns_index: float = 0.0

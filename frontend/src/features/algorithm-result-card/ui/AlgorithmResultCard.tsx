@@ -2,12 +2,13 @@ import { useState } from 'react';
 
 import { ALGORITHM_DETAILS } from '@entities/algorithm/model/registry';
 import type { AlgorithmId, AlgorithmResult } from '@entities/measurement';
-import { BAEVSKY_BANDS, stressBand } from '@shared/lib/labels';
+import { BAEVSKY_BANDS } from '@shared/lib/labels';
 import { TIER_STYLES, type MetricTier } from '@shared/lib/metricTiers';
 
 import { BvpSparkline } from './BvpSparkline';
 import { MetricRow } from './MetricRow';
 import { ReliabilityBadge } from './ReliabilityBadge';
+import { StressBreakdown } from './StressBreakdown';
 
 const fmt = (n: number | undefined | null, digits = 1, fallback = '-') =>
   n === undefined || n === null || !Number.isFinite(n) ? fallback : n.toFixed(digits);
@@ -95,20 +96,22 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
             </div>
           </TierBox>
 
-          {/* Composite (this demo's blend — experimental) */}
-          {stress && (
-            <div
-              className="rounded-lg px-3 py-2 text-sm flex items-baseline justify-between"
-              style={{
-                backgroundColor: `${stressBand(stress.compositeLevel).color}1a`,
-                color: stressBand(stress.compositeLevel).color,
-              }}
-            >
-              <span className="text-[11px] uppercase tracking-wider opacity-80">스트레스</span>
-              <span className="font-semibold">
-                {Math.round(stress.compositeScore)} / 100 · {stressBand(stress.compositeLevel).label}
-              </span>
-            </div>
+          {/* 스트레스 v1 — 기존 클래식 (Baev + LF/HF + RMSSD) */}
+          {stress?.compositeV1 && (
+            <StressBreakdown
+              title="스트레스 v1 — 클래식"
+              subtitle="Baevsky + LF/HF + RMSSD (3 지표)"
+              data={stress.compositeV1}
+            />
+          )}
+
+          {/* 스트레스 v2 — 자율신경 균형 종합 (9 지표) */}
+          {stress?.compositeV2 && (
+            <StressBreakdown
+              title="스트레스 v2 — 자율신경 종합"
+              subtitle="v1의 3 지표 + Kubios + HeartMath + SampEn + DFA α1 + 호흡 (총 9 지표)"
+              data={stress.compositeV2}
+            />
           )}
 
           {/* 상용 표준: Kubios + HeartMath */}

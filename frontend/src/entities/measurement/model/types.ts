@@ -53,6 +53,30 @@ export type BaevskyLevel = 'normal' | 'mild' | 'moderate' | 'high';
 export type StressLevel = 'low' | 'mid' | 'high' | 'very_high';
 export type ReliabilityGrade = 'low' | 'medium' | 'high';
 
+export type MetricTierName =
+  | 'clinical'
+  | 'commercial'
+  | 'research'
+  | 'experimental'
+  | 'rgbEstimated';
+
+export interface StressComponent {
+  name: string;
+  label: string;
+  weight: number;
+  rawValue: number;
+  rawUnit: string;
+  normalized: number;
+  contribution: number;
+  tier: MetricTierName;
+}
+
+export interface CompositeBreakdown {
+  score: number;
+  level: StressLevel;
+  components: StressComponent[];
+}
+
 export interface StressIndices {
   baevskySi: number;
   baevskyLevel: BaevskyLevel;
@@ -62,6 +86,10 @@ export interface StressIndices {
   lfHfStress: number;
   compositeScore: number;
   compositeLevel: StressLevel;
+  compositeV1?: CompositeBreakdown | null;
+  compositeScoreV2: number;
+  compositeLevelV2: StressLevel;
+  compositeV2?: CompositeBreakdown | null;
   pnsIndex: number;
   snsIndex: number;
   coherenceScore: number;

@@ -16,6 +16,7 @@ from app.pipeline.orchestrator import run_pipeline
 from app.schemas.measurement import (
     AlgorithmMetaOut,
     AlgorithmResult,
+    CompositeBreakdown,
     ConsensusResult,
     HemodynamicMetrics,
     HRVMetrics,
@@ -24,6 +25,7 @@ from app.schemas.measurement import (
     ReliabilityComponents,
     RespirationMetrics,
     SignalQuality,
+    StressComponent,
     StressIndices,
     VideoMeta,
 )
@@ -84,19 +86,40 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
             dfa_alpha1=a["nonlinear"].dfa_alpha1,
             higuchi_fd=a["nonlinear"].higuchi_fd,
         )
+        v1 = a["composite_v1"]
+        v2 = a["composite_v2"]
+
+        def _to_breakdown(b) -> CompositeBreakdown:
+            return CompositeBreakdown(
+                score=b.score,
+                level=b.level,
+                components=[
+                    StressComponent(
+                        name=c.name,
+                        label=c.label,
+                        weight=c.weight,
+                        raw_value=c.raw_value,
+                        raw_unit=c.raw_unit,
+                        normalized=c.normalized,
+                        contribution=c.contribution,
+                        tier=c.tier,
+                    )
+                    for c in b.components
+                ],
+            )
+
         stress = StressIndices(
             baevsky_si=a["baevsky"].si,
             baevsky_level=a["baevsky"].level,
             baevsky_mo_s=a["baevsky"].mo_s,
             baevsky_amo_pct=a["baevsky"].amo_pct,
             baevsky_mxdmn_s=a["baevsky"].mxdmn_s,
-            composite_score=a["composite"],
-            composite_level=(
-                "low" if a["composite"] < 30
-                else "mid" if a["composite"] < 60
-                else "high" if a["composite"] < 80
-                else "very_high"
-            ),
+            composite_score=v1.score,
+            composite_level=v1.level,
+            composite_v1=_to_breakdown(v1),
+            composite_score_v2=v2.score,
+            composite_level_v2=v2.level,
+            composite_v2=_to_breakdown(v2),
             pns_index=a["kubios"].pns_index,
             sns_index=a["kubios"].sns_index,
             coherence_score=a["coherence"].score,
