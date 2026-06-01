@@ -32,13 +32,16 @@ def build_consensus(per_algo: list[dict]) -> dict | None:
         ws = [w for w in weights if w > 0]
         return _weighted_median(vals, ws)
 
-    score = wmed(lambda a: a["composite"])
-    level = (
-        "low" if score < 30
-        else "mid" if score < 60
-        else "high" if score < 80
-        else "very_high"
-    )
+    def _level(s: float) -> str:
+        return (
+            "low" if s < 30
+            else "mid" if s < 60
+            else "high" if s < 80
+            else "very_high"
+        )
+
+    score_v1 = wmed(lambda a: a["composite_v1"].score)
+    score_v2 = wmed(lambda a: a["composite_v2"].score)
 
     rel_vals = [a["reliability"] for a, w in zip(available, weights) if w > 0]
     ws = [w for w in weights if w > 0]
@@ -46,8 +49,10 @@ def build_consensus(per_algo: list[dict]) -> dict | None:
     rel_grade = "high" if consensus_rel >= 75 else "medium" if consensus_rel >= 45 else "low"
 
     return {
-        "stress_score": score,
-        "stress_level": level,
+        "stress_score": score_v1,
+        "stress_level": _level(score_v1),
+        "stress_score_v2": score_v2,
+        "stress_level_v2": _level(score_v2),
         "hr_bpm": wmed(lambda a: a["hrv"].hr_bpm),
         "rmssd_ms": wmed(lambda a: a["hrv"].rmssd_ms),
         "lf_hf_ratio": wmed(lambda a: a["freq"].lf_hf_ratio),

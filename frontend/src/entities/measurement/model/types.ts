@@ -144,6 +144,8 @@ export interface AlgorithmResult {
 export interface ConsensusResult {
   stressScore: number;
   stressLevel: StressLevel;
+  stressScoreV2: number;
+  stressLevelV2: StressLevel;
   hrBpm: number;
   rmssdMs: number;
   lfHfRatio: number;

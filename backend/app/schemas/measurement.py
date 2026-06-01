@@ -143,6 +143,8 @@ class AlgorithmResult(CamelModel):
 class ConsensusResult(CamelModel):
     stress_score: float
     stress_level: Literal["low", "mid", "high", "very_high"]
+    stress_score_v2: float = 0.0
+    stress_level_v2: Literal["low", "mid", "high", "very_high"] = "low"
     hr_bpm: float
     rmssd_ms: float
     lf_hf_ratio: float

@@ -175,6 +175,8 @@ def _consensus(per_algo: list[dict]) -> ConsensusResult | None:
     return ConsensusResult(
         stress_score=c["stress_score"],
         stress_level=c["stress_level"],
+        stress_score_v2=c.get("stress_score_v2", 0.0),
+        stress_level_v2=c.get("stress_level_v2", "low"),
         hr_bpm=c["hr_bpm"],
         rmssd_ms=c["rmssd_ms"],
         lf_hf_ratio=c["lf_hf_ratio"],

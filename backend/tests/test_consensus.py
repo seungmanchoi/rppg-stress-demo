@@ -11,6 +11,11 @@ class _T:  # minimal stub for hrv/freq/baevsky records
     si: float = 0.0
 
 
+@dataclass
+class _CompStub:
+    score: float = 0.0
+
+
 def _algo(aid, hr, rmssd, lfhf, si, comp, rel):
     return {
         "id": aid,
@@ -19,6 +24,8 @@ def _algo(aid, hr, rmssd, lfhf, si, comp, rel):
         "freq": _T(lf_hf_ratio=lfhf),
         "baevsky": _T(si=si),
         "composite": comp,
+        "composite_v1": _CompStub(score=comp),
+        "composite_v2": _CompStub(score=comp),
         "reliability": rel,
     }
 
