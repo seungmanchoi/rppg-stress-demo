@@ -137,6 +137,7 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
                 respiration=respiration,
                 hemodynamic=hemodynamic,
                 signal_quality=signal_quality,
+                beat_count=int(len(a["ibi"])) if "ibi" in a else None,
                 bvp_sparkline=_downsample(a["bvp"]),
                 compute_ms=a.get("compute_ms", 0),
             )

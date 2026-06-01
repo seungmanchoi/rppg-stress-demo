@@ -22,6 +22,7 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
     respiration,
     hemodynamic,
     signalQuality,
+    beatCount,
     bvpSparkline,
     error,
   } = result;
@@ -60,7 +61,7 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           <div className="flex items-baseline justify-between -mt-1">
             <span className="text-[10px] uppercase tracking-wider text-neutral-400">BVP</span>
             <span className="text-[10px] text-neutral-400 tabular-nums">
-              처리 {Math.round(result.computeMs)} ms
+              {beatCount ? `${beatCount} 박동 · ` : ''}처리 {Math.round(result.computeMs)} ms
             </span>
           </div>
           <BvpSparkline data={bvpSparkline} />
@@ -69,6 +70,7 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
           <TierBox tier="clinical" label="핵심 HRV (임상 표준)">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
               <MetricRow label="심박수" value={`${hrv ? Math.round(hrv.hrBpm) : '-'} BPM`} />
+              <MetricRow label="IBI mean" value={`${fmt(hrv?.ibiMeanMs, 0)} ms`} />
               <MetricRow label="SDNN" value={`${fmt(hrv?.sdnnMs, 0)} ms`} />
               <MetricRow label="RMSSD" value={`${fmt(hrv?.rmssdMs, 0)} ms`} />
               <MetricRow label="SDSD" value={`${fmt(hrv?.sdsdMs, 0)} ms`} />
@@ -119,6 +121,7 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
                 <MetricRow label="공명 주파수" value={`${fmt(stress.coherencePeakHz, 3)} Hz`} />
                 <MetricRow label="AMo" value={`${fmt(stress.baevskyAmoPct, 1)} %`} />
                 <MetricRow label="MxDMn" value={`${fmt(stress.baevskyMxdmnS, 2)} s`} />
+                <MetricRow label="Mo (mode IBI)" value={`${fmt(stress.baevskyMoS, 2)} s`} />
               </div>
             </TierBox>
           )}

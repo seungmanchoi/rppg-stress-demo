@@ -112,6 +112,7 @@ class AlgorithmResult(CamelModel):
     respiration: RespirationMetrics | None = None
     hemodynamic: HemodynamicMetrics | None = None
     signal_quality: SignalQuality | None = None
+    beat_count: int | None = None
     bvp_sparkline: list[float] = Field(default_factory=list)
     extras: dict | None = None
     compute_ms: float

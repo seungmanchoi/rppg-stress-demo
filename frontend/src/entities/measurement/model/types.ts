@@ -107,6 +107,7 @@ export interface AlgorithmResult {
   respiration?: RespirationMetrics | null;
   hemodynamic?: HemodynamicMetrics | null;
   signalQuality?: SignalQuality | null;
+  beatCount?: number | null;
   bvpSparkline: number[];
   extras?: Record<string, unknown> | null;
   computeMs: number;

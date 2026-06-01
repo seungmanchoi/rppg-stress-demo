@@ -8,6 +8,7 @@ import { ConsensusDashboard } from '@widgets/consensus-dashboard/ui/ConsensusDas
 import { MeasurementProgress } from '@widgets/measurement-progress/ui/MeasurementProgress';
 import { MetricsGlossary } from '@widgets/metrics-glossary';
 import { StressFormula } from '@widgets/stress-formula';
+import { TierLegend } from '@widgets/tier-legend';
 
 const PLACEHOLDER_RESULTS: AlgorithmResult[] = ALGORITHM_DEFAULTS.map((m) => ({
   meta: m,
@@ -87,6 +88,8 @@ export function MeasurePage() {
       {data?.consensus && (
         <ConsensusDashboard data={data.consensus} totalAlgorithms={ALGORITHM_DEFAULTS.length} />
       )}
+
+      {isDone && <TierLegend />}
 
       <AlgorithmCardsGrid results={algorithms} />
 
