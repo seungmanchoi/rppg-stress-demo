@@ -88,6 +88,7 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
         )
         v1 = a["composite_v1"]
         v2 = a["composite_v2"]
+        v3 = a["composite_v3"]
 
         def _to_breakdown(b) -> CompositeBreakdown:
             return CompositeBreakdown(
@@ -120,6 +121,9 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
             composite_score_v2=v2.score,
             composite_level_v2=v2.level,
             composite_v2=_to_breakdown(v2),
+            composite_score_v3=v3.score,
+            composite_level_v3=v3.level,
+            composite_v3=_to_breakdown(v3),
             pns_index=a["kubios"].pns_index,
             sns_index=a["kubios"].sns_index,
             coherence_score=a["coherence"].score,
@@ -177,6 +181,8 @@ def _consensus(per_algo: list[dict]) -> ConsensusResult | None:
         stress_level=c["stress_level"],
         stress_score_v2=c.get("stress_score_v2", 0.0),
         stress_level_v2=c.get("stress_level_v2", "low"),
+        stress_score_v3=c.get("stress_score_v3", 0.0),
+        stress_level_v3=c.get("stress_level_v3", "low"),
         hr_bpm=c["hr_bpm"],
         rmssd_ms=c["rmssd_ms"],
         lf_hf_ratio=c["lf_hf_ratio"],

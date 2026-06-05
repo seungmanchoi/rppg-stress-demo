@@ -14,6 +14,7 @@ export function ConsensusDashboard({
 }) {
   const bandV1 = stressBand(data.stressLevel);
   const bandV2 = stressBand(data.stressLevelV2);
+  const bandV3 = stressBand(data.stressLevelV3);
   const relInfo = RELIABILITY_BANDS[data.reliability.grade];
 
   return (
@@ -27,7 +28,7 @@ export function ConsensusDashboard({
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <ScoreCard
             variant="v1"
             title="스트레스 v1"
@@ -45,6 +46,15 @@ export function ConsensusDashboard({
             score={data.stressScoreV2}
             level={data.stressLevelV2}
             band={bandV2}
+          />
+          <ScoreCard
+            variant="v3"
+            title="스트레스 v3"
+            subtitle="v2 + SDNN + pNN50 + SD2/SD1 + Higuchi"
+            tag="전체 HRV 패널 · 12 지표"
+            score={data.stressScoreV3}
+            level={data.stressLevelV3}
+            band={bandV3}
           />
         </div>
 
@@ -85,7 +95,7 @@ function ScoreCard({
   level,
   band,
 }: {
-  variant: 'v1' | 'v2';
+  variant: 'v1' | 'v2' | 'v3';
   title: string;
   subtitle: string;
   tag: string;

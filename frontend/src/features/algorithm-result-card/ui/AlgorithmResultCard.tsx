@@ -114,6 +114,15 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
             />
           )}
 
+          {/* 스트레스 v3 — 전체 HRV 패널 종합 (12 지표) */}
+          {stress?.compositeV3 && (
+            <StressBreakdown
+              title="스트레스 v3 — 전체 HRV 패널"
+              subtitle="v2 + SDNN + pNN50 + SD2/SD1 + Higuchi (총 12 지표) — 가장 폭넓은 종합"
+              data={stress.compositeV3}
+            />
+          )}
+
           {/* 상용 표준: Kubios + HeartMath */}
           {stress && (
             <TierBox tier="commercial" label="상용 표준 — Kubios · HeartMath">

@@ -76,6 +76,10 @@ class StressIndices(CamelModel):
     composite_score_v2: float = 0.0
     composite_level_v2: Literal["low", "mid", "high", "very_high"] = "low"
     composite_v2: CompositeBreakdown | None = None
+    # Composite v3 (full HRV panel ensemble — 12 metrics)
+    composite_score_v3: float = 0.0
+    composite_level_v3: Literal["low", "mid", "high", "very_high"] = "low"
+    composite_v3: CompositeBreakdown | None = None
     # Kubios-style autonomic balance (-2..+2)
     pns_index: float = 0.0
     sns_index: float = 0.0
@@ -145,6 +149,8 @@ class ConsensusResult(CamelModel):
     stress_level: Literal["low", "mid", "high", "very_high"]
     stress_score_v2: float = 0.0
     stress_level_v2: Literal["low", "mid", "high", "very_high"] = "low"
+    stress_score_v3: float = 0.0
+    stress_level_v3: Literal["low", "mid", "high", "very_high"] = "low"
     hr_bpm: float
     rmssd_ms: float
     lf_hf_ratio: float

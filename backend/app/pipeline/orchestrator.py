@@ -26,6 +26,7 @@ from app.pipeline.stress.baevsky import baevsky_si
 from app.pipeline.stress.coherence import cardiac_coherence
 from app.pipeline.stress.composite import composite_level, composite_stress, composite_stress_breakdown
 from app.pipeline.stress.composite_v2 import composite_stress_v2
+from app.pipeline.stress.composite_v3 import composite_stress_v3
 from app.pipeline.stress.kubios import kubios_indices
 
 log = logging.getLogger(__name__)
@@ -205,6 +206,20 @@ async def run_pipeline(
             coherence=coh.score,
             respiration_rpm=resp.rate_rpm,
         )
+        v3 = composite_stress_v3(
+            baevsky_si=bv.si,
+            lf_hf=fd.lf_hf_ratio,
+            rmssd_ms=td.rmssd_ms,
+            sdnn_ms=td.sdnn_ms,
+            pnn50_pct=td.pnn50_pct,
+            sd2_sd1=pc.ratio,
+            sample_entropy=nl.sample_entropy,
+            dfa_alpha1=nl.dfa_alpha1,
+            higuchi_fd=nl.higuchi_fd,
+            sns_index=kubios.sns_index,
+            pns_index=kubios.pns_index,
+            coherence=coh.score,
+        )
         per_algo.append(
             {
                 "id": aid,
@@ -220,6 +235,7 @@ async def run_pipeline(
                 "composite": v1.score,
                 "composite_v1": v1,
                 "composite_v2": v2,
+                "composite_v3": v3,
                 "snr_db": snr,
                 "kubios": kubios,
                 "coherence": coh,

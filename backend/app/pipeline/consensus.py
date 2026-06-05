@@ -42,6 +42,7 @@ def build_consensus(per_algo: list[dict]) -> dict | None:
 
     score_v1 = wmed(lambda a: a["composite_v1"].score)
     score_v2 = wmed(lambda a: a["composite_v2"].score)
+    score_v3 = wmed(lambda a: a["composite_v3"].score)
 
     rel_vals = [a["reliability"] for a, w in zip(available, weights) if w > 0]
     ws = [w for w in weights if w > 0]
@@ -53,6 +54,8 @@ def build_consensus(per_algo: list[dict]) -> dict | None:
         "stress_level": _level(score_v1),
         "stress_score_v2": score_v2,
         "stress_level_v2": _level(score_v2),
+        "stress_score_v3": score_v3,
+        "stress_level_v3": _level(score_v3),
         "hr_bpm": wmed(lambda a: a["hrv"].hr_bpm),
         "rmssd_ms": wmed(lambda a: a["hrv"].rmssd_ms),
         "lf_hf_ratio": wmed(lambda a: a["freq"].lf_hf_ratio),

@@ -26,6 +26,7 @@ def _algo(aid, hr, rmssd, lfhf, si, comp, rel):
         "composite": comp,
         "composite_v1": _CompStub(score=comp),
         "composite_v2": _CompStub(score=comp),
+        "composite_v3": _CompStub(score=comp),
         "reliability": rel,
     }
 

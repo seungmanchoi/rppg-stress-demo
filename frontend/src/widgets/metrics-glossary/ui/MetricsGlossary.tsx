@@ -262,6 +262,14 @@ const GROUPS: MetricGroup[] = [
           'v1의 3 지표(0.45) + Kubios SNS·PNS(0.20) + SampEn·DFA α1 dev(0.15) + Coherence·호흡 dev(0.20). 단일 지표 편향 감소.',
         tier: 'research',
       },
+      {
+        name: '스트레스 v3 (전체 HRV 패널, 12 지표)',
+        unit: '0~100',
+        normal: '구간별 라벨',
+        meaning:
+          'v2의 자율신경 지표에 SDNN·pNN50·SD2/SD1·Higuchi FD를 더해 12개로 종합. 임상(0.58)+학계(0.17)+상용(0.25). 카드에 보이는 지표를 최대한 활용 — 가장 폭넓고 노이즈에 강한 점수.',
+        tier: 'research',
+      },
     ],
   },
   {

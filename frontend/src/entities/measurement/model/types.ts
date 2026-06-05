@@ -94,6 +94,9 @@ export interface StressIndices {
   compositeScoreV2: number;
   compositeLevelV2: StressLevel;
   compositeV2?: CompositeBreakdown | null;
+  compositeScoreV3: number;
+  compositeLevelV3: StressLevel;
+  compositeV3?: CompositeBreakdown | null;
   pnsIndex: number;
   snsIndex: number;
   coherenceScore: number;
@@ -150,6 +153,8 @@ export interface ConsensusResult {
   stressLevel: StressLevel;
   stressScoreV2: number;
   stressLevelV2: StressLevel;
+  stressScoreV3: number;
+  stressLevelV3: StressLevel;
   hrBpm: number;
   rmssdMs: number;
   lfHfRatio: number;
