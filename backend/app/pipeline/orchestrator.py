@@ -30,8 +30,11 @@ from app.pipeline.stress.kubios import kubios_indices
 
 log = logging.getLogger(__name__)
 
-UNSUP_IDS = {"POS", "CHROM", "OMIT"}
-SUPERVISED_IDS = {"TS-CAN", "EfficientPhys", "PhysFormer", "RhythmFormer", "BigSmall"}
+UNSUP_IDS = {"POS", "CHROM", "OMIT", "GREEN", "ICA"}
+SUPERVISED_IDS = {
+    "TS-CAN", "EfficientPhys", "PhysFormer", "RhythmFormer", "BigSmall",
+    "PhysNet", "DeepPhys",
+}
 
 ProgressCb = Callable[[float, str], Awaitable[None]]
 
@@ -46,6 +49,12 @@ def _adapter_for(algo_id: str):
     if algo_id == "OMIT":
         from app.pipeline.algorithms.unsupervised.omit import OmitAdapter
         return OmitAdapter()
+    if algo_id == "GREEN":
+        from app.pipeline.algorithms.unsupervised.green import GreenAdapter
+        return GreenAdapter()
+    if algo_id == "ICA":
+        from app.pipeline.algorithms.unsupervised.ica import IcaAdapter
+        return IcaAdapter()
     if algo_id == "TS-CAN":
         from app.pipeline.algorithms.supervised.ts_can import TsCanAdapter
         return TsCanAdapter()
@@ -61,6 +70,12 @@ def _adapter_for(algo_id: str):
     if algo_id == "BigSmall":
         from app.pipeline.algorithms.supervised.bigsmall import BigSmallAdapter
         return BigSmallAdapter()
+    if algo_id == "PhysNet":
+        from app.pipeline.algorithms.supervised.physnet import PhysNetAdapter
+        return PhysNetAdapter()
+    if algo_id == "DeepPhys":
+        from app.pipeline.algorithms.supervised.deepphys import DeepPhysAdapter
+        return DeepPhysAdapter()
     raise KeyError(algo_id)
 
 

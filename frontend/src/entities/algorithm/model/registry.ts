@@ -13,11 +13,15 @@ export const ALGORITHM_DEFAULTS: AlgorithmMeta[] = [
   { id: 'POS', displayName: 'POS', shortDescription: '피부 톤 직교 평면 투영으로 혈류 분리 (de Haan 2014)', type: 'unsupervised', backbone: 'Signal processing' },
   { id: 'CHROM', displayName: 'CHROM', shortDescription: '피부 톤 표준화 후 색 차이 신호화 (de Haan 2013)', type: 'unsupervised', backbone: 'Signal processing' },
   { id: 'OMIT', displayName: 'OMIT', shortDescription: 'Orthogonal Matrix Image Transformation, 조명 강건', type: 'unsupervised', backbone: 'Signal processing' },
+  { id: 'GREEN', displayName: 'GREEN', shortDescription: '녹색 채널만으로 혈류 추출 — rPPG의 시초 (Verkruysse 2008)', type: 'unsupervised', backbone: 'Signal processing' },
+  { id: 'ICA', displayName: 'ICA', shortDescription: '독립성분분석으로 RGB에서 맥파 분리 (Poh 2010)', type: 'unsupervised', backbone: 'Signal processing' },
   { id: 'TS-CAN', displayName: 'TS-CAN', shortDescription: '2D-CNN + Temporal Shift, 모바일 실시간 친화', type: 'supervised', backbone: 'CNN+TSM', pretrainedOn: 'UBFC-rPPG', modelSizeMb: 30 },
   { id: 'EfficientPhys', displayName: 'EfficientPhys', shortDescription: '경량 CNN — 가장 빠른 supervised', type: 'supervised', backbone: 'Light CNN', pretrainedOn: 'UBFC-rPPG', modelSizeMb: 25 },
   { id: 'PhysFormer', displayName: 'PhysFormer', shortDescription: 'Video Transformer SOTA', type: 'supervised', backbone: 'Transformer', pretrainedOn: 'PURE', modelSizeMb: 200 },
   { id: 'RhythmFormer', displayName: 'RhythmFormer', shortDescription: 'Frequency-domain attention, HRV 안정', type: 'supervised', backbone: 'Freq-attention', pretrainedOn: 'PURE', modelSizeMb: 180 },
   { id: 'BigSmall', displayName: 'BigSmall', shortDescription: 'Multitask: BVP + 호흡수 + AU (BP4D 학습)', type: 'supervised', backbone: 'Multitask CNN', pretrainedOn: 'BP4D', modelSizeMb: 80 },
+  { id: 'PhysNet', displayName: 'PhysNet', shortDescription: '3D-CNN encoder-decoder — 시공간 맥파 추출 (Yu 2019)', type: 'supervised', backbone: '3D-CNN', pretrainedOn: 'PURE', modelSizeMb: 3 },
+  { id: 'DeepPhys', displayName: 'DeepPhys', shortDescription: 'Motion+Appearance 2-stream — TS-CAN의 원조 (Chen 2018)', type: 'supervised', backbone: 'CNN+Attention', pretrainedOn: 'UBFC-rPPG', modelSizeMb: 9 },
 ];
 
 export const ALGORITHM_DETAILS: Record<AlgorithmId, AlgorithmDetails> = {
@@ -76,5 +80,33 @@ export const ALGORITHM_DETAILS: Record<AlgorithmId, AlgorithmDetails> = {
     methodology:
       '두 해상도 branch — Big(144×144 Standardized: 얼굴 디테일)와 Small(9×9 DiffNormalized: 큰 움직임). 두 stream을 합치고 BVP·Resp·AU 세 출력 head로 분기. BP4D 데이터셋(스트레스 유발 표정)으로 학습.',
     citation: 'Narayanswamy et al., WACV 2024',
+  },
+  GREEN: {
+    analyzes:
+      'ROI 평균 RGB 중 녹색(G) 채널만 사용해 BVP를 추정합니다. rPPG 연구의 출발점이 된 가장 단순한 방법입니다.',
+    methodology:
+      '헤모글로빈이 녹색光(~540nm)을 가장 강하게 흡수하므로, 혈류 변동이 녹색 채널에 가장 크게 나타납니다. 녹색 신호를 detrend + bandpass(0.7~2.5Hz)만 적용해 맥파를 얻습니다. 조명·움직임 보정이 없어 잡음에 약하지만, 다른 방법들의 비교 기준(baseline)으로 쓰입니다.',
+    citation: 'Verkruysse et al., Optics Express 2008',
+  },
+  ICA: {
+    analyzes:
+      'ROI 평균 RGB 3채널을 통계적으로 독립인 신호원(source)들로 분리하고, 그중 심박 대역에 해당하는 성분을 BVP로 선택합니다.',
+    methodology:
+      '관측된 RGB가 여러 독립 신호원(맥파·움직임·조명)의 선형 혼합이라고 가정하고, JADE 독립성분분석(ICA)으로 역혼합합니다. 분리된 성분 중 주파수 피크가 심박 대역(0.7~4Hz)에 있는 것을 맥파로 채택합니다. blind source separation의 대표 사례.',
+    citation: 'Poh, McDuff & Picard, Optics Express 2010',
+  },
+  PhysNet: {
+    analyzes:
+      '얼굴 영상을 시공간 큐브(128프레임 ≈ 4.3초)로 받아 BVP 시퀀스 전체를 한 번에 예측합니다.',
+    methodology:
+      '3D 컨볼루션 encoder-decoder 구조. 시간·공간을 동시에 보는 Conv3D 블록으로 특징을 추출하고, 업샘플링으로 프레임별 BVP를 복원합니다. DiffNormalized 입력(프레임 차분)을 사용하며, 시공간 모델의 고전적 baseline입니다.',
+    citation: 'Yu et al., BMVC 2019',
+  },
+  DeepPhys: {
+    analyzes:
+      '얼굴 영상 → BVP. TS-CAN의 직계 조상으로, motion+appearance 두 stream 구조를 처음 제안한 모델입니다.',
+    methodology:
+      'Motion stream(DiffNormalized 프레임 차분)과 Appearance stream(Standardized raw 프레임)의 2-branch CNN. Appearance branch가 만든 soft-attention mask로 얼굴 영역에 집중시켜 motion branch를 게이팅합니다. TS-CAN과 달리 Temporal Shift Module이 없습니다.',
+    citation: 'Chen & McDuff, ECCV 2018',
   },
 };

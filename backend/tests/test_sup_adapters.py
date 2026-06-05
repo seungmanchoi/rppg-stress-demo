@@ -10,8 +10,10 @@ import pytest
 
 from app.core.config import settings
 from app.pipeline.algorithms.supervised.bigsmall import BigSmallAdapter
+from app.pipeline.algorithms.supervised.deepphys import DeepPhysAdapter
 from app.pipeline.algorithms.supervised.efficientphys import EfficientPhysAdapter
 from app.pipeline.algorithms.supervised.physformer import PhysFormerAdapter
+from app.pipeline.algorithms.supervised.physnet import PhysNetAdapter
 from app.pipeline.algorithms.supervised.rhythmformer import RhythmFormerAdapter
 from app.pipeline.algorithms.supervised.ts_can import TsCanAdapter
 
@@ -33,6 +35,8 @@ CASES = [
     ("PhysFormer", PhysFormerAdapter, "PURE_PhysFormer_DiffNormalized.pth", 320),
     ("RhythmFormer", RhythmFormerAdapter, "PURE_RhythmFormer.pth", 320),
     ("BigSmall", BigSmallAdapter, "BP4D_BigSmall_Multitask_Fold1.pth", 60),
+    ("PhysNet", PhysNetAdapter, "PURE_PhysNet_DiffNormalized.pth", 200),
+    ("DeepPhys", DeepPhysAdapter, "UBFC-rPPG_DeepPhys.pth", 200),
 ]
 
 

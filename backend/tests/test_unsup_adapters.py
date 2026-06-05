@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from app.pipeline.algorithms.unsupervised.chrom import ChromAdapter
+from app.pipeline.algorithms.unsupervised.green import GreenAdapter
+from app.pipeline.algorithms.unsupervised.ica import IcaAdapter
 from app.pipeline.algorithms.unsupervised.omit import OmitAdapter
 from app.pipeline.algorithms.unsupervised.pos import PosAdapter
 
@@ -16,7 +18,9 @@ def _synth_signal(seconds: int = 30, fs: int = 30, hr_hz: float = 1.2):
     return signal.astype(np.float64), fs
 
 
-@pytest.mark.parametrize("adapter_cls", [PosAdapter, ChromAdapter, OmitAdapter])
+@pytest.mark.parametrize(
+    "adapter_cls", [PosAdapter, ChromAdapter, OmitAdapter, GreenAdapter, IcaAdapter]
+)
 def test_unsup_adapter_returns_bvp(adapter_cls):
     sig, fs = _synth_signal()
     bvp = adapter_cls().estimate_bvp(sig, None, fs)

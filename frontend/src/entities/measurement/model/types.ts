@@ -2,11 +2,15 @@ export type AlgorithmId =
   | 'POS'
   | 'CHROM'
   | 'OMIT'
+  | 'GREEN'
+  | 'ICA'
   | 'TS-CAN'
   | 'EfficientPhys'
   | 'PhysFormer'
   | 'RhythmFormer'
-  | 'BigSmall';
+  | 'BigSmall'
+  | 'PhysNet'
+  | 'DeepPhys';
 
 export interface AlgorithmMeta {
   id: AlgorithmId;

@@ -1,7 +1,7 @@
 # rPPG Stress Demo
 
 웹캠 얼굴 영상으로 **심박(HR) · 심박변이도(HRV) · 스트레스 지수**를 비접촉으로 추정하는 데모.
-8개 rPPG 알고리즘을 동시에 실행하고, 결과를 신뢰도 기반으로 합의하여 0~100 스트레스 점수를 산출합니다.
+12개 rPPG 알고리즘을 동시에 실행하고, 결과를 신뢰도 기반으로 합의하여 0~100 스트레스 점수를 산출합니다.
 
 > ⚠ **의료기기가 아닙니다.** 교육·연구용 추정치이며 진단·치료에 사용할 수 없습니다.
 
@@ -11,7 +11,7 @@
 
 - 🎥 **브라우저에서 직접 녹화** — getUserMedia + MediaRecorder, 15/30/45/60초 선택
 - 👤 **실시간 얼굴 추적·크롭** — MediaPipe FaceDetector + One Euro Filter로 떨림 없이 얼굴만 화면 중앙에 고정
-- 🧠 **8개 알고리즘 동시 실행** — 비지도 3종(POS·CHROM·OMIT) + 지도 5종(TS-CAN·EfficientPhys·PhysFormer·RhythmFormer·BigSmall)
+- 🧠 **12개 알고리즘 동시 실행** — 비지도 5종(POS·CHROM·OMIT·GREEN·ICA) + 지도 7종(TS-CAN·EfficientPhys·PhysFormer·RhythmFormer·BigSmall·PhysNet·DeepPhys)
 - 📊 **HRV 풀세트 추출** — HR, SDNN, RMSSD, pNN50, LF/HF, Poincaré SD1/SD2, Baevsky SI
 - 🛡 **신뢰도 가중 합의** — 각 알고리즘 결과에 SNR·트래킹·움직임·합의편차 기반 0~100 신뢰도 부여, 신뢰도 30 미만 카드는 합의에서 제외
 - ⚙ **harmonic 자동 보정** — supervised 모델이 2배 주파수(예: 167 BPM)에 락되면 자동으로 절반 보정
@@ -48,9 +48,9 @@ frame_decoder (frame timestamp 기반 fps 재계산)
    ↓
 face_roi (Haar cascade, 이마+양볼 RGB 평균)
    ↓
-8개 알고리즘 병렬 실행
-   ├─ POS / CHROM / OMIT       (RGB 채널 조합 수식)
-   └─ TS-CAN / EfficientPhys / PhysFormer / RhythmFormer / BigSmall  (PyTorch 추론)
+12개 알고리즘 병렬 실행
+   ├─ POS / CHROM / OMIT / GREEN / ICA   (RGB 채널 조합 수식)
+   └─ TS-CAN / EfficientPhys / PhysFormer / RhythmFormer / BigSmall / PhysNet / DeepPhys  (PyTorch 추론)
    ↓
 BVP 신호 → band-pass (0.7~3.5Hz) → Savgol smoothing → FFT HR 추정 → harmonic check
    ↓
@@ -116,8 +116,8 @@ pnpm dev
 1. **카메라 켜기** → MediaPipe 모델 로드 (~1MB CDN)
 2. 얼굴이 화면 가운데 자동 정렬되면 "얼굴 추적 중" 표시
 3. **녹화 시간 선택** (15/30/45/60초) → "녹화 시작"
-4. 녹화 종료 직후 자동 업로드 → 8개 알고리즘 분석 (≈ 30초 영상 기준 25~30초 소요)
-5. 결과: 합의 점수 게이지 + 8개 카드별 HRV/스트레스/신뢰도
+4. 녹화 종료 직후 자동 업로드 → 12개 알고리즘 분석 (≈ 30초 영상 기준 30~40초 소요)
+5. 결과: 합의 점수 게이지(v1·v2) + 12개 카드별 HRV/스트레스/신뢰도
 
 ---
 
@@ -132,18 +132,22 @@ pnpm dev
 
 ---
 
-## 8개 알고리즘
+## 12개 알고리즘
 
 | ID | 종류 | 학습 데이터 | 특징 |
 |------|-----|------------|------|
 | **POS** | 비지도 | — | 피부 톤 직교 평면 투영 (de Haan 2014). 가장 robust |
 | **CHROM** | 비지도 | — | 색차 신호화 (de Haan 2013) |
 | **OMIT** | 비지도 | — | 직교 행렬 변환, 조명 변화 robust |
+| **GREEN** | 비지도 | — | 녹색 채널만 사용 — rPPG의 시초 (Verkruysse 2008) |
+| **ICA** | 비지도 | — | 독립성분분석 blind source separation (Poh 2010) |
 | **TS-CAN** | 지도 (CNN+TSM) | UBFC-rPPG | 모바일 실시간 친화 |
 | **EfficientPhys** | 지도 (경량 CNN) | UBFC-rPPG | 가장 빠른 supervised |
 | **PhysFormer** | 지도 (Video Transformer) | PURE | temporal self-attention SOTA |
 | **RhythmFormer** | 지도 (Freq-domain Attention) | PURE | HRV 안정성 ↑ |
 | **BigSmall** | 지도 (Multi-task CNN) | BP4D | BVP + 호흡 + AU 동시 추정 |
+| **PhysNet** | 지도 (3D-CNN) | PURE | 시공간 encoder-decoder baseline (Yu 2019) |
+| **DeepPhys** | 지도 (CNN+Attention) | UBFC-rPPG | motion+appearance 2-stream — TS-CAN의 원조 (Chen 2018) |
 
 ---
 
@@ -173,7 +177,7 @@ backend/
 ├── app/
 │   ├── api/v1/measurements.py         # 업로드 + SSE 진행률
 │   ├── pipeline/
-│   │   ├── orchestrator.py            # 8개 알고리즘 병렬 + HRV/스트레스
+│   │   ├── orchestrator.py            # 12개 알고리즘 병렬 + HRV/스트레스
 │   │   ├── preprocess/                # frame_decoder, face_roi, quality_gate
 │   │   ├── algorithms/                # unsupervised + supervised 어댑터
 │   │   ├── hrv/                       # peak_detect, time/freq/nonlinear
@@ -182,7 +186,7 @@ backend/
 │   │   └── consensus.py               # reliability-weighted median
 │   └── models/                        # 가중치 로더
 ├── rppg_toolbox/                      # submodule
-└── tests/                             # 41 tests
+└── tests/                             # 45 tests
 
 frontend/
 └── src/
@@ -191,7 +195,7 @@ frontend/
     ├── features/
     │   ├── record-video/              # webcam + face tracker + recorder
     │   ├── run-measurement/           # SSE 진행률 + 결과 store
-    │   └── algorithm-result-card/     # 8개 카드 UI
+    │   └── algorithm-result-card/     # 알고리즘 카드 UI
     ├── entities/algorithm/            # 알고리즘 메타데이터
     └── shared/                        # api, lib, ui
 ```
@@ -202,7 +206,7 @@ frontend/
 
 ```bash
 cd backend
-uv run pytest -q     # 41 tests
+uv run pytest -q     # 45 tests
 ```
 
 ```bash

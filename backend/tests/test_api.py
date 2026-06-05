@@ -17,17 +17,17 @@ def test_health():
     assert body["status"] == "ok"
     assert "mpsAvailable" in body
     assert "weightsLoaded" in body
-    assert body["totalAlgorithms"] == 8
+    assert body["totalAlgorithms"] == 12
 
 
 def test_algorithms_list():
     r = client.get("/api/v1/algorithms")
     assert r.status_code == 200
     data = r.json()
-    assert len(data) == 8
+    assert len(data) == 12
     ids = {d["id"] for d in data}
-    assert ids == {"POS", "CHROM", "OMIT", "TS-CAN", "EfficientPhys",
-                   "PhysFormer", "RhythmFormer", "BigSmall"}
+    assert ids == {"POS", "CHROM", "OMIT", "GREEN", "ICA", "TS-CAN", "EfficientPhys",
+                   "PhysFormer", "RhythmFormer", "BigSmall", "PhysNet", "DeepPhys"}
 
 
 def test_get_nonexistent_measurement():

@@ -39,6 +39,16 @@ ALGORITHMS: list[AlgorithmMeta] = [
         "unsupervised", "Signal processing",
     ),
     AlgorithmMeta(
+        "GREEN", "GREEN",
+        "녹색 채널만으로 혈류 추출 — rPPG의 시초 (Verkruysse 2008)",
+        "unsupervised", "Signal processing",
+    ),
+    AlgorithmMeta(
+        "ICA", "ICA",
+        "독립성분분석(ICA)으로 RGB에서 맥파 분리 (Poh 2010)",
+        "unsupervised", "Signal processing",
+    ),
+    AlgorithmMeta(
         "TS-CAN", "TS-CAN",
         "2D-CNN + Temporal Shift Module, 모바일 실시간 친화",
         "supervised", "CNN+TSM",
@@ -77,6 +87,22 @@ ALGORITHMS: list[AlgorithmMeta] = [
         pretrained_on="BP4D", model_size_mb=80,
         weight_url=WEIGHT_BASE + "BP4D_BigSmall_Multitask_Fold1.pth",
         weight_filename="BP4D_BigSmall_Multitask_Fold1.pth",
+    ),
+    AlgorithmMeta(
+        "PhysNet", "PhysNet",
+        "3D-CNN encoder-decoder — 시공간 맥파 추출 (Yu 2019)",
+        "supervised", "3D-CNN",
+        pretrained_on="PURE", model_size_mb=3,
+        weight_url=WEIGHT_BASE + "PURE_PhysNet_DiffNormalized.pth",
+        weight_filename="PURE_PhysNet_DiffNormalized.pth",
+    ),
+    AlgorithmMeta(
+        "DeepPhys", "DeepPhys",
+        "Motion+Appearance 2-stream CNN — TS-CAN의 원조 (Chen 2018)",
+        "supervised", "CNN+Attention",
+        pretrained_on="UBFC-rPPG", model_size_mb=9,
+        weight_url=WEIGHT_BASE + "UBFC-rPPG_DeepPhys.pth",
+        weight_filename="UBFC-rPPG_DeepPhys.pth",
     ),
 ]
 
