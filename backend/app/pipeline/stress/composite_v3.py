@@ -26,12 +26,13 @@ Each component is normalized to [0, 1] before weighting. Final score = 100·Σ.
 """
 from __future__ import annotations
 
+from app.pipeline.stress.adaptive import MetricConfidence
 from app.pipeline.stress.composite import (
-    MIN_SCORE_WITH_VALID_HRV,
     CompositeBreakdown,
-    StressComponent,
-    _clip,
+    Row,
+    assemble_score,
     composite_level,
+    _clip,
 )
 from app.pipeline.stress.composite_v2 import (
     DFA_HALFWIDTH,
@@ -90,8 +91,9 @@ def composite_stress_v3(
     sns_index: float,
     pns_index: float,
     coherence: float,
+    confidences: MetricConfidence | None = None,
 ) -> CompositeBreakdown:
-    rows = [
+    rows: list[Row] = [
         ("baevsky_si",     "Baevsky SI",    0.12, baevsky_si,     "점수", _norm_baev(baevsky_si),                                      "clinical"),
         ("lf_hf",          "LF/HF",         0.12, lf_hf,          "비율", _norm_lfhf(lf_hf),                                           "clinical"),
         ("rmssd",          "RMSSD (inv)",   0.10, rmssd_ms,       "ms",   _norm_rmssd_inv(rmssd_ms),                                   "clinical"),
@@ -105,19 +107,5 @@ def composite_stress_v3(
         ("pns_index_inv",  "PNS (inv)",     0.08, pns_index,      "-2~2", _norm_pns_inv(pns_index),                                    "commercial"),
         ("coherence_inv",  "Coherence inv", 0.07, coherence,      "0~3",  _norm_coherence_inv(coherence),                              "commercial"),
     ]
-    score = 100.0 * sum(w * n for (_, _, w, _, _, n, _) in rows)
-    score = max(MIN_SCORE_WITH_VALID_HRV, score)
-    components = [
-        StressComponent(
-            name=name,
-            label=label,
-            weight=w,
-            raw_value=raw,
-            raw_unit=unit,
-            normalized=n,
-            contribution=100.0 * w * n,
-            tier=tier,
-        )
-        for (name, label, w, raw, unit, n, tier) in rows
-    ]
+    score, components = assemble_score(rows, confidences)
     return CompositeBreakdown(score=score, level=composite_level(score), components=components)

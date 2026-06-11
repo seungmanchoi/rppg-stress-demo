@@ -44,23 +44,27 @@ canvas.captureStream(30) → MediaRecorder → webm
    ↓
 [server] FastAPI upload
    ↓
-frame_decoder (frame timestamp 기반 fps 재계산)
+frame_decoder (frame timestamp 보존 + fps 재계산)
    ↓
-face_roi (Haar cascade, 이마+양볼 RGB 평균)
+face_roi (Haar cascade + box 시간평활 + 피부픽셀 게이팅, 미검출 프레임은 보간)
    ↓
 12개 알고리즘 병렬 실행
    ├─ POS / CHROM / OMIT / GREEN / ICA   (RGB 채널 조합 수식)
    └─ TS-CAN / EfficientPhys / PhysFormer / RhythmFormer / BigSmall / PhysNet / DeepPhys  (PyTorch 추론)
    ↓
-BVP 신호 → band-pass (0.7~3.5Hz) → Savgol smoothing → FFT HR 추정 → harmonic check
+BVP → timestamp 기반 균일 리샘플 (VFR 보정 + ×4 업샘플 ≈120Hz)
    ↓
-peak detection (HR-aware distance + prominence)
+band-pass (0.7~3.5Hz) → Savgol smoothing → FFT HR 추정 → harmonic check
    ↓
-IBI 시계열 (±30% window + 2·MAD 정제)
+peak detection (HR-aware distance + prominence + parabolic sub-sample 보정)
+   ↓
+IBI 시계열 (missed-beat 분할 복원 + ±30% window + 2·MAD 정제)
    ↓
 HRV 메트릭: HR, SDNN, RMSSD, pNN50, LF/HF, Poincaré, Baevsky SI
    ↓
-Composite stress (Baev·LF/HF·RMSSD 가중합 4:4:2 → 0~100)
+측정 신뢰도(beat 수·길이·SNR) 기반 적응형 컴포넌트 가중
+   ↓
+Composite stress v1(클래식 3) · v2(자율신경 9) · v3(전체 12) · v4(카메라 적응형 8) → 0~100
    ↓
 Reliability-weighted median consensus
 ```
@@ -117,7 +121,7 @@ pnpm dev
 2. 얼굴이 화면 가운데 자동 정렬되면 "얼굴 추적 중" 표시
 3. **녹화 시간 선택** (15/30/45/60초) → "녹화 시작"
 4. 녹화 종료 직후 자동 업로드 → 12개 알고리즘 분석 (≈ 30초 영상 기준 30~40초 소요)
-5. 결과: 합의 점수 게이지(v1·v2) + 12개 카드별 HRV/스트레스/신뢰도
+5. 결과: 합의 점수 게이지(v1~v4) + 12개 카드별 HRV/스트레스/신뢰도
 
 ---
 
@@ -153,13 +157,20 @@ pnpm dev
 
 ## 스트레스 점수 산출 (요약)
 
+네 가지 점수를 동시에 산출합니다. **v1**(클래식 3지표) → **v2**(자율신경 9지표) → **v3**(전체 HRV 12지표)는 사용하는 지표 개수가 다르고, **v4**는 실제 카메라 단기 측정에 최적화된 적응형 robust 점수입니다.
+
 ```
-norm_baev  = clamp((BaevSI - 40)   / (1500 - 40), 0, 1)
+# v1 — 클래식 (ESC/NASPE 1996 + Baevsky)
+norm_baev  = clamp(log10(BaevSI/40) / log10(1500/40), 0, 1)
 norm_lfhf  = clamp((LF/HF  - 0.7)  / (4.0  - 0.7), 0, 1)
 norm_rmssd = 1 - clamp((RMSSD - 15) / (100 - 15), 0, 1)   # 역방향 (큰 RMSSD = 이완)
 
 stress = 100 × (0.4·norm_baev + 0.4·norm_lfhf + 0.2·norm_rmssd)
 ```
+
+**적응형 신뢰도 가중 (v1~v4 공통).** 30초 webcam 측정에서 LF/HF·DFA·SampEn 같은 장기·고비트 지표는 신뢰도가 낮습니다. 각 지표에 측정 길이·beat 수·SNR로 산출한 신뢰도(0~1)를 곱하고 살아남은 가중치를 재정규화해, 그 측정이 실제로 뒷받침할 수 있는 지표 위주로 점수가 형성됩니다 (지표가 부실하면 LF/HF 비중이 자동으로 줄어듭니다).
+
+**v4 — 카메라 적응형 robust.** 단기에 빨리 안정되고 카메라 노이즈에 강한 지표(RMSSD·HF·Baevsky·Poincaré SD2/SD1·coherence)에 무게를 싣고, LF/HF·SampEn은 낮은 기본 가중으로 둡니다. 추가로 SNR이 낮거나 beat가 적으면 점수를 중립(≈38)으로 수렴시켜, 신뢰할 수 없는 측정에서 극단값 대신 "판단 보류 ≈ 보통"을 보고합니다.
 
 | 구간 | 라벨 | 의미 |
 |------|------|------|

@@ -4,17 +4,26 @@ import cv2
 import numpy as np
 
 
-def decode_video(path: Path, target_fps: int = 30) -> tuple[np.ndarray, float, tuple[int, int]]:
-    """Decode video to RGB frames at target_fps. Returns (frames, effective_fps, (h, w)).
+def decode_video(
+    path: Path, target_fps: int = 30
+) -> tuple[np.ndarray, float, np.ndarray, tuple[int, int]]:
+    """Decode video to RGB frames at target_fps.
+
+    Returns (frames, effective_fps, timestamps_ms, (h, w)).
 
     Computes actual fps from per-frame timestamps because canvas.captureStream
     produces variable-fps webm where the container-level fps is unreliable.
+    The per-frame timestamps are returned so downstream HRV extraction can
+    resample the BVP onto a uniform time grid instead of assuming a constant
+    inter-frame interval — VFR jitter otherwise leaks straight into the IBI
+    series and inflates RMSSD/SDNN.
     """
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
         raise ValueError(f"Cannot open video: {path}")
 
     raw_frames: list[np.ndarray] = []
+    ts_list: list[float] = []
     last_ts_ms = 0.0
     first_ts_ms: float | None = None
     while True:
@@ -25,6 +34,7 @@ def decode_video(path: Path, target_fps: int = 30) -> tuple[np.ndarray, float, t
         if first_ts_ms is None:
             first_ts_ms = ts
         last_ts_ms = ts
+        ts_list.append(ts)
         raw_frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     cap.release()
     if not raw_frames:
@@ -33,14 +43,19 @@ def decode_video(path: Path, target_fps: int = 30) -> tuple[np.ndarray, float, t
     duration_s = max(0.001, (last_ts_ms - (first_ts_ms or 0.0)) / 1000.0)
     actual_fps = len(raw_frames) / duration_s if duration_s > 0 else 30.0
 
+    timestamps = np.asarray(ts_list, dtype=np.float64)
+    if timestamps.size:
+        timestamps = timestamps - timestamps[0]
+
     # If source is high-fps (>1.5× target), downsample.
     if actual_fps > target_fps * 1.5:
         stride = max(1, int(round(actual_fps / target_fps)))
         frames = raw_frames[::stride]
+        timestamps = timestamps[::stride]
         effective_fps = actual_fps / stride
     else:
         frames = raw_frames
         effective_fps = actual_fps
 
     arr = np.stack(frames, axis=0)
-    return arr, float(effective_fps), (arr.shape[1], arr.shape[2])
+    return arr, float(effective_fps), timestamps, (arr.shape[1], arr.shape[2])

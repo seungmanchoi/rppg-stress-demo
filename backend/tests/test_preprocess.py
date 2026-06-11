@@ -24,11 +24,12 @@ def synthetic_video(tmp_path: Path) -> Path:
 
 
 def test_decode_video_returns_rgb_frames(synthetic_video: Path):
-    frames, fps, (h, w) = decode_video(synthetic_video, target_fps=30)
+    frames, fps, timestamps_ms, (h, w) = decode_video(synthetic_video, target_fps=30)
     assert frames.ndim == 4 and frames.shape[-1] == 3
     assert frames.dtype == np.uint8
     assert 28 <= fps <= 32
     assert h == 120 and w == 160
+    assert len(timestamps_ms) == len(frames)
 
 
 def test_decode_video_missing_file_raises(tmp_path: Path):
@@ -37,7 +38,7 @@ def test_decode_video_missing_file_raises(tmp_path: Path):
 
 
 def test_quality_gate_bright_static_synthetic(synthetic_video: Path):
-    frames, _, _ = decode_video(synthetic_video)
+    frames, _, _, _ = decode_video(synthetic_video)
     # 합성 영상 → 얼굴 0개, 노이즈 큼
     q = assess(frames, detected=0)
     assert q.detected_ratio == 0.0

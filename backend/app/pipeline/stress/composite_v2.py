@@ -23,18 +23,19 @@ Each component is normalized to [0, 1] before weighting. Final score = 100·Σ.
 """
 from __future__ import annotations
 
+from app.pipeline.stress.adaptive import MetricConfidence
 from app.pipeline.stress.composite import (
     BAEVSKY_CEIL,
     BAEVSKY_FLOOR,
     LF_HF_RELAXED,
     LF_HF_STRESSED,
-    MIN_SCORE_WITH_VALID_HRV,
     RMSSD_HIGH_STRESS_MS,
     RMSSD_RELAXED_MS,
     CompositeBreakdown,
-    StressComponent,
-    _clip,
+    Row,
+    assemble_score,
     composite_level,
+    _clip,
 )
 
 import math
@@ -95,6 +96,7 @@ def composite_stress_v2(
     dfa_alpha1: float,
     coherence: float,
     respiration_rpm: float,
+    confidences: MetricConfidence | None = None,
 ) -> CompositeBreakdown:
     s_baev = _norm_baev(baevsky_si)
     s_lfhf = _norm_lfhf(lf_hf)
@@ -106,7 +108,7 @@ def composite_stress_v2(
     s_coh = _norm_coherence_inv(coherence)
     s_resp = _norm_dev(respiration_rpm, RESP_HEALTHY_RPM, RESP_HALFWIDTH)
 
-    weights_norms = [
+    rows: list[Row] = [
         ("baevsky_si",      "Baevsky SI",   0.15, baevsky_si,    "점수", s_baev,   "clinical"),
         ("lf_hf",           "LF/HF",        0.15, lf_hf,         "비율", s_lfhf,   "clinical"),
         ("rmssd",           "RMSSD (inv)",  0.15, rmssd_ms,      "ms",   s_rmssd,  "clinical"),
@@ -117,19 +119,5 @@ def composite_stress_v2(
         ("coherence_inv",   "Coherence inv",0.12, coherence,     "0~3",  s_coh,    "commercial"),
         ("respiration",     "Resp. dev",    0.08, respiration_rpm,"/min",s_resp,   "commercial"),
     ]
-    score = 100.0 * sum(w * n for (_, _, w, _, _, n, _) in weights_norms)
-    score = max(MIN_SCORE_WITH_VALID_HRV, score)
-    components = [
-        StressComponent(
-            name=name,
-            label=label,
-            weight=w,
-            raw_value=raw,
-            raw_unit=unit,
-            normalized=n,
-            contribution=100.0 * w * n,
-            tier=tier,
-        )
-        for (name, label, w, raw, unit, n, tier) in weights_norms
-    ]
+    score, components = assemble_score(rows, confidences)
     return CompositeBreakdown(score=score, level=composite_level(score), components=components)

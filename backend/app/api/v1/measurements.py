@@ -89,6 +89,7 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
         v1 = a["composite_v1"]
         v2 = a["composite_v2"]
         v3 = a["composite_v3"]
+        v4 = a["composite_v4"]
 
         def _to_breakdown(b) -> CompositeBreakdown:
             return CompositeBreakdown(
@@ -124,6 +125,9 @@ def _algorithm_results(per_algo: list[dict], quality, median_hr: float) -> list[
             composite_score_v3=v3.score,
             composite_level_v3=v3.level,
             composite_v3=_to_breakdown(v3),
+            composite_score_v4=v4.score,
+            composite_level_v4=v4.level,
+            composite_v4=_to_breakdown(v4),
             pns_index=a["kubios"].pns_index,
             sns_index=a["kubios"].sns_index,
             coherence_score=a["coherence"].score,
@@ -183,10 +187,23 @@ def _consensus(per_algo: list[dict]) -> ConsensusResult | None:
         stress_level_v2=c.get("stress_level_v2", "low"),
         stress_score_v3=c.get("stress_score_v3", 0.0),
         stress_level_v3=c.get("stress_level_v3", "low"),
+        stress_score_v4=c.get("stress_score_v4", 0.0),
+        stress_level_v4=c.get("stress_level_v4", "low"),
         hr_bpm=c["hr_bpm"],
         rmssd_ms=c["rmssd_ms"],
+        sdnn_ms=c.get("sdnn_ms", 0.0),
+        pnn50_pct=c.get("pnn50_pct", 0.0),
         lf_hf_ratio=c["lf_hf_ratio"],
+        hf_nu=c.get("hf_nu", 0.0),
         baevsky_si=c["baevsky_si"],
+        sd2_sd1=c.get("sd2_sd1", 0.0),
+        sample_entropy=c.get("sample_entropy", 0.0),
+        dfa_alpha1=c.get("dfa_alpha1", 0.0),
+        higuchi_fd=c.get("higuchi_fd", 0.0),
+        sns_index=c.get("sns_index", 0.0),
+        pns_index=c.get("pns_index", 0.0),
+        coherence_score=c.get("coherence_score", 0.0),
+        respiration_rpm=c.get("respiration_rpm", 0.0),
         reliability=Reliability(
             score=c["reliability"]["score"],
             grade=c["reliability"]["grade"],
@@ -229,7 +246,14 @@ async def _process(job_id: str, path: Path, algorithm_ids: list[str]) -> None:
         await bus.publish(job_id, {"event": "failed", "error": str(e)})
     finally:
         try:
-            path.unlink(missing_ok=True)
+            if settings.keep_captures:
+                # Preserve the clip for offline inspection / re-analysis.
+                import shutil
+
+                dest = settings.captures_dir / path.name
+                shutil.move(str(path), str(dest))
+            else:
+                path.unlink(missing_ok=True)
         except Exception:  # noqa: BLE001
             pass
 

@@ -80,6 +80,10 @@ class StressIndices(CamelModel):
     composite_score_v3: float = 0.0
     composite_level_v3: Literal["low", "mid", "high", "very_high"] = "low"
     composite_v3: CompositeBreakdown | None = None
+    # Composite v4 (camera-adaptive robust — short-record indices, trust-shrunk)
+    composite_score_v4: float = 0.0
+    composite_level_v4: Literal["low", "mid", "high", "very_high"] = "low"
+    composite_v4: CompositeBreakdown | None = None
     # Kubios-style autonomic balance (-2..+2)
     pns_index: float = 0.0
     sns_index: float = 0.0
@@ -151,10 +155,25 @@ class ConsensusResult(CamelModel):
     stress_level_v2: Literal["low", "mid", "high", "very_high"] = "low"
     stress_score_v3: float = 0.0
     stress_level_v3: Literal["low", "mid", "high", "very_high"] = "low"
+    stress_score_v4: float = 0.0
+    stress_level_v4: Literal["low", "mid", "high", "very_high"] = "low"
+    # Consensus value of every metric used by any version (for the per-version
+    # metric filter in the dashboard).
     hr_bpm: float
     rmssd_ms: float
+    sdnn_ms: float = 0.0
+    pnn50_pct: float = 0.0
     lf_hf_ratio: float
+    hf_nu: float = 0.0
     baevsky_si: float
+    sd2_sd1: float = 0.0
+    sample_entropy: float = 0.0
+    dfa_alpha1: float = 0.0
+    higuchi_fd: float = 0.0
+    sns_index: float = 0.0
+    pns_index: float = 0.0
+    coherence_score: float = 0.0
+    respiration_rpm: float = 0.0
     reliability: Reliability
     contributing_algorithms: int
 

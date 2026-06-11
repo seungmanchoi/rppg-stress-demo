@@ -4,11 +4,22 @@ from app.pipeline.consensus import build_consensus
 
 
 @dataclass
-class _T:  # minimal stub for hrv/freq/baevsky records
+class _T:  # minimal stub for hrv/freq/baevsky/poincare/nonlinear/kubios/... records
     hr_bpm: float = 0.0
     rmssd_ms: float = 0.0
+    sdnn_ms: float = 0.0
+    pnn50_pct: float = 0.0
     lf_hf_ratio: float = 0.0
+    hf_nu: float = 0.0
     si: float = 0.0
+    sd_ratio: float = 0.0
+    sample_entropy: float = 0.0
+    dfa_alpha1: float = 0.0
+    higuchi_fd: float = 0.0
+    sns_index: float = 0.0
+    pns_index: float = 0.0
+    score: float = 0.0
+    rate_rpm: float = 0.0
 
 
 @dataclass
@@ -23,10 +34,16 @@ def _algo(aid, hr, rmssd, lfhf, si, comp, rel):
         "hrv": _T(hr_bpm=hr, rmssd_ms=rmssd),
         "freq": _T(lf_hf_ratio=lfhf),
         "baevsky": _T(si=si),
+        "poincare": _T(),
+        "nonlinear": _T(),
+        "kubios": _T(),
+        "coherence": _T(),
+        "respiration": _T(),
         "composite": comp,
         "composite_v1": _CompStub(score=comp),
         "composite_v2": _CompStub(score=comp),
         "composite_v3": _CompStub(score=comp),
+        "composite_v4": _CompStub(score=comp),
         "reliability": rel,
     }
 

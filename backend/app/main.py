@@ -1,10 +1,18 @@
-import logging
+import os
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+# Apple MPS lacks kernels for some 3D ops (e.g. adaptive_avg_pool3d used by
+# PhysNet's 3D-CNN); without this they raise NotImplementedError and the model
+# is dropped. Falling those ops back to CPU keeps PhysNet alive. Must be set
+# before torch is imported anywhere. No effect on CUDA / CPU-only machines.
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
-from app.api.v1 import algorithms, health, measurements
-from app.core.config import settings
+import logging  # noqa: E402
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+from app.api.v1 import algorithms, health, measurements  # noqa: E402
+from app.core.config import settings  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 

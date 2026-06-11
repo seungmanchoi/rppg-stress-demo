@@ -18,6 +18,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.pipeline.stress.adaptive import MetricConfidence, confidence_for
+
 Level = Literal["low", "mid", "high", "very_high"]
 
 # Tuneable thresholds — see docstring above.
@@ -53,6 +55,47 @@ def _clip(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
 
 
+# A component row: (name, label, weight, raw_value, raw_unit, normalized, tier)
+Row = tuple[str, str, float, float, str, float, str]
+
+
+def assemble_score(
+    rows: list[Row],
+    confidences: MetricConfidence | None = None,
+) -> tuple[float, list["StressComponent"]]:
+    """Combine weighted, normalized components into a 0~100 score.
+
+    When ``confidences`` is given, each component weight is scaled by its
+    confidence and the surviving weights are renormalized — low-trust indices
+    (e.g. LF/HF on a short clip) fade out and the score leans on what the
+    measurement can actually support. With ``confidences=None`` this is a plain
+    weighted sum identical to the original fixed-weight formula.
+    """
+    eff = [w * confidence_for(name, confidences) for (name, _, w, _, _, _, _) in rows]
+    total = sum(eff)
+    if total <= 1e-9:
+        contributions = [0.0] * len(rows)
+        raw_score = 0.0
+    else:
+        contributions = [100.0 * (e / total) * n for e, (_, _, _, _, _, n, _) in zip(eff, rows)]
+        raw_score = sum(contributions)
+    score = max(MIN_SCORE_WITH_VALID_HRV, raw_score)
+    components = [
+        StressComponent(
+            name=name,
+            label=label,
+            weight=w,
+            raw_value=raw,
+            raw_unit=unit,
+            normalized=n,
+            contribution=contrib,
+            tier=tier,
+        )
+        for (name, label, w, raw, unit, n, tier), contrib in zip(rows, contributions)
+    ]
+    return score, components
+
+
 def composite_level(score: float) -> Level:
     if score < 30:
         return "low"
@@ -67,6 +110,7 @@ def composite_stress_breakdown(
     baevsky_si: float,
     lf_hf: float,
     rmssd: float,
+    confidences: MetricConfidence | None = None,
 ) -> CompositeBreakdown:
     """Return v1 composite (3 components: Baevsky 40% + LF/HF 40% + RMSSD 20%)."""
     s_baev = _clip(
@@ -77,43 +121,20 @@ def composite_stress_breakdown(
     s_rmssd = _clip(
         (RMSSD_RELAXED_MS - rmssd) / (RMSSD_RELAXED_MS - RMSSD_HIGH_STRESS_MS)
     )
-    score = 100 * (0.4 * s_baev + 0.4 * s_lfhf + 0.2 * s_rmssd)
-    score = max(MIN_SCORE_WITH_VALID_HRV, score)
-    components = [
-        StressComponent(
-            name="baevsky_si",
-            label="Baevsky SI",
-            weight=0.40,
-            raw_value=baevsky_si,
-            raw_unit="점수",
-            normalized=s_baev,
-            contribution=100 * 0.40 * s_baev,
-            tier="clinical",
-        ),
-        StressComponent(
-            name="lf_hf",
-            label="LF/HF",
-            weight=0.40,
-            raw_value=lf_hf,
-            raw_unit="비율",
-            normalized=s_lfhf,
-            contribution=100 * 0.40 * s_lfhf,
-            tier="clinical",
-        ),
-        StressComponent(
-            name="rmssd",
-            label="RMSSD",
-            weight=0.20,
-            raw_value=rmssd,
-            raw_unit="ms",
-            normalized=s_rmssd,
-            contribution=100 * 0.20 * s_rmssd,
-            tier="clinical",
-        ),
+    rows: list[Row] = [
+        ("baevsky_si", "Baevsky SI", 0.40, baevsky_si, "점수", s_baev, "clinical"),
+        ("lf_hf", "LF/HF", 0.40, lf_hf, "비율", s_lfhf, "clinical"),
+        ("rmssd", "RMSSD", 0.20, rmssd, "ms", s_rmssd, "clinical"),
     ]
+    score, components = assemble_score(rows, confidences)
     return CompositeBreakdown(score=score, level=composite_level(score), components=components)
 
 
-def composite_stress(baevsky_si: float, lf_hf: float, rmssd: float) -> float:
+def composite_stress(
+    baevsky_si: float,
+    lf_hf: float,
+    rmssd: float,
+    confidences: MetricConfidence | None = None,
+) -> float:
     """Return composite stress score in [3, 100] when HRV is valid. (back-compat)"""
-    return composite_stress_breakdown(baevsky_si, lf_hf, rmssd).score
+    return composite_stress_breakdown(baevsky_si, lf_hf, rmssd, confidences).score

@@ -19,15 +19,23 @@ from app.pipeline.morphology.bvp_quality import bvp_quality
 from app.pipeline.preprocess.face_roi import extract_roi_signal
 from app.pipeline.preprocess.frame_decoder import decode_video
 from app.pipeline.preprocess.quality_gate import assess
+from app.pipeline.preprocess.resample import resample_uniform
 from app.pipeline.reliability.scoring import reliability_grade, reliability_score
 from app.pipeline.reliability.snr import bvp_snr_db
 from app.pipeline.respiration.bvp_resp import respiration_from_bvp
+from app.pipeline.stress.adaptive import metric_confidences
 from app.pipeline.stress.baevsky import baevsky_si
 from app.pipeline.stress.coherence import cardiac_coherence
-from app.pipeline.stress.composite import composite_level, composite_stress, composite_stress_breakdown
+from app.pipeline.stress.composite import composite_stress_breakdown
 from app.pipeline.stress.composite_v2 import composite_stress_v2
 from app.pipeline.stress.composite_v3 import composite_stress_v3
+from app.pipeline.stress.composite_v4 import composite_stress_v4
 from app.pipeline.stress.kubios import kubios_indices
+
+# Oversampling factor for BVP before peak detection. At 30 fps one sample is
+# ~33 ms; ×4 brings the grid to ~120 Hz so (with parabolic refinement) IBI
+# timing is no longer staircased into the frame period.
+BVP_OVERSAMPLE = 4
 
 log = logging.getLogger(__name__)
 
@@ -113,7 +121,7 @@ async def run_pipeline(
 
     await _emit(0.05, "decode")
     t0 = _time.perf_counter()
-    frames, fs, (h, w) = decode_video(video_path, target_fps=30)
+    frames, fs, timestamps_ms, (h, w) = decode_video(video_path, target_fps=30)
     decode_ms = (_time.perf_counter() - t0) * 1000
     duration_s = float(len(frames) / fs)
 
@@ -151,7 +159,12 @@ async def run_pipeline(
                 }
             )
             continue
-        ibi = bvp_to_ibi(bvp, fs)
+        # Resample the frame-indexed BVP onto a uniform, oversampled time grid
+        # using the real per-frame timestamps. This removes variable-frame-rate
+        # jitter and frame-period quantization before any HRV is computed, so
+        # every downstream signal metric uses (bvp_u, fs_u).
+        bvp_u, fs_u = resample_uniform(bvp, timestamps_ms, fs, oversample=BVP_OVERSAMPLE)
+        ibi = bvp_to_ibi(bvp_u, fs_u)
         # IBI 추출 실패 — 측정 자체가 실패한 케이스로 표시 (stress=0이 카드에 노출되는 것 방지)
         if len(ibi) < 16:
             per_algo.append(
@@ -181,8 +194,7 @@ async def run_pipeline(
                 }
             )
             continue
-        v1 = composite_stress_breakdown(bv.si, fd.lf_hf_ratio, td.rmssd_ms)
-        snr = bvp_snr_db(bvp, fs)
+        snr = bvp_snr_db(bvp_u, fs_u)
         kubios = kubios_indices(
             mean_rr_ms=td.ibi_mean_ms,
             rmssd_ms=td.rmssd_ms,
@@ -192,9 +204,16 @@ async def run_pipeline(
             lf_nu=fd.lf_nu,
         )
         coh = cardiac_coherence(ibi)
-        resp = respiration_from_bvp(bvp, fs)
-        bvp_q = bvp_quality(bvp, fs)
+        resp = respiration_from_bvp(bvp_u, fs_u)
+        bvp_q = bvp_quality(bvp_u, fs_u)
         spo2 = estimate_spo2_rgb(rgb_signal, fs)
+
+        # Measurement-aware confidence: how much each HRV index can be trusted
+        # given this clip's beat count, duration and SNR. Shared by v1–v4 so the
+        # weights lean on indices the actual recording can support.
+        conf = metric_confidences(beat_count=len(ibi), duration_s=duration_s, snr_db=snr)
+
+        v1 = composite_stress_breakdown(bv.si, fd.lf_hf_ratio, td.rmssd_ms, confidences=conf)
         v2 = composite_stress_v2(
             baevsky_si=bv.si,
             lf_hf=fd.lf_hf_ratio,
@@ -205,6 +224,7 @@ async def run_pipeline(
             dfa_alpha1=nl.dfa_alpha1,
             coherence=coh.score,
             respiration_rpm=resp.rate_rpm,
+            confidences=conf,
         )
         v3 = composite_stress_v3(
             baevsky_si=bv.si,
@@ -212,20 +232,34 @@ async def run_pipeline(
             rmssd_ms=td.rmssd_ms,
             sdnn_ms=td.sdnn_ms,
             pnn50_pct=td.pnn50_pct,
-            sd2_sd1=pc.ratio,
+            sd2_sd1=pc.sd_ratio,
             sample_entropy=nl.sample_entropy,
             dfa_alpha1=nl.dfa_alpha1,
             higuchi_fd=nl.higuchi_fd,
             sns_index=kubios.sns_index,
             pns_index=kubios.pns_index,
             coherence=coh.score,
+            confidences=conf,
+        )
+        v4 = composite_stress_v4(
+            baevsky_si=bv.si,
+            lf_hf=fd.lf_hf_ratio,
+            rmssd_ms=td.rmssd_ms,
+            pnn50_pct=td.pnn50_pct,
+            sd2_sd1=pc.sd_ratio,
+            hf_nu=fd.hf_nu,
+            sample_entropy=nl.sample_entropy,
+            coherence=coh.score,
+            snr_db=snr,
+            beat_count=len(ibi),
+            confidences=conf,
         )
         per_algo.append(
             {
                 "id": aid,
                 "meta": meta.to_dict(),
                 "available": True,
-                "bvp": bvp,
+                "bvp": bvp_u,
                 "ibi": ibi,
                 "hrv": td,
                 "freq": fd,
@@ -236,6 +270,7 @@ async def run_pipeline(
                 "composite_v1": v1,
                 "composite_v2": v2,
                 "composite_v3": v3,
+                "composite_v4": v4,
                 "snr_db": snr,
                 "kubios": kubios,
                 "coherence": coh,
