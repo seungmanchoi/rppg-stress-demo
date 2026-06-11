@@ -97,6 +97,9 @@ export interface StressIndices {
   compositeScoreV3: number;
   compositeLevelV3: StressLevel;
   compositeV3?: CompositeBreakdown | null;
+  compositeScoreV4: number;
+  compositeLevelV4: StressLevel;
+  compositeV4?: CompositeBreakdown | null;
   pnsIndex: number;
   snsIndex: number;
   coherenceScore: number;
@@ -155,10 +158,23 @@ export interface ConsensusResult {
   stressLevelV2: StressLevel;
   stressScoreV3: number;
   stressLevelV3: StressLevel;
+  stressScoreV4: number;
+  stressLevelV4: StressLevel;
   hrBpm: number;
   rmssdMs: number;
+  sdnnMs: number;
+  pnn50Pct: number;
   lfHfRatio: number;
+  hfNu: number;
   baevskySi: number;
+  sd2Sd1: number;
+  sampleEntropy: number;
+  dfaAlpha1: number;
+  higuchiFd: number;
+  snsIndex: number;
+  pnsIndex: number;
+  coherenceScore: number;
+  respirationRpm: number;
   reliability: Reliability;
   contributingAlgorithms: number;
 }

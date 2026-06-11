@@ -123,6 +123,15 @@ export function AlgorithmResultCard({ result }: { result: AlgorithmResult }) {
             />
           )}
 
+          {/* 스트레스 v4 — 카메라 단기 측정 적응형 robust */}
+          {stress?.compositeV4 && (
+            <StressBreakdown
+              title="스트레스 v4 — 카메라 적응형"
+              subtitle="단기 신뢰 지표(RMSSD·HF·Baevsky·SD2/SD1·coherence) 중심 + 측정 신뢰도로 가중·중립 보정"
+              data={stress.compositeV4}
+            />
+          )}
+
           {/* 상용 표준: Kubios + HeartMath */}
           {stress && (
             <TierBox tier="commercial" label="상용 표준 — Kubios · HeartMath">
