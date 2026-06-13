@@ -1,10 +1,10 @@
 import { QueryProvider } from './providers/QueryProvider';
-import { MeasurePage } from '@pages/measure/MeasurePage';
+import { FavMeasurePage } from '@pages/fav/FavMeasurePage';
 
 export function App() {
   return (
     <QueryProvider>
-      <MeasurePage />
+      <FavMeasurePage />
     </QueryProvider>
   );
 }
